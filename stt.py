@@ -45,13 +45,17 @@ import plotly.express as px
 from streamlit_lottie import st_lottie  # Import the Lottie function
 import requests  # To fetch the Lottie animation
 import googletrans
-from google_trans_new import google_translator
+# from google_trans_new import google_translator
 # Using deep-translator as it's more reliable
 from deep_translator import GoogleTranslator
 
 
+translated = GoogleTranslator(source='auto', target='en').translate('Bonjour')
+print(translated)
+
+
 # Initialize translator (from google_trans_new, if used elsewhere)
-translator = google_translator()
+# translator = google_translator()
 
 
 st.set_page_config(layout="wide")
