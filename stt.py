@@ -3973,6 +3973,12 @@ def employee_dashboard(username):
     if user_id and f"chat_history_{user_id}" not in st.session_state:
         st.session_state[f"chat_history_{user_id}"] = []
 
+    # --- FIX: INITIALIZE ASSESSMENT STATE VARIABLES HERE ---
+    if 'assessment_started' not in st.session_state:
+        st.session_state.assessment_started = False
+    if 'assessment_finished' not in st.session_state:
+        st.session_state.assessment_finished = False
+
     with st.sidebar:
         selected_tab = option_menu(
             menu_title="Employee Dashboard",
