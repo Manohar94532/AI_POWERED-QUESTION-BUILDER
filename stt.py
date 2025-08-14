@@ -44,7 +44,7 @@ import plotly.express as px
 from streamlit_lottie import st_lottie  # Import the Lottie function
 import requests  # To fetch the Lottie animation
 import googletrans
-from google_trans_new import google_translator
+#from google_trans_new import google_translator
 # Using deep-translator as it's more reliable
 from deep_translator import GoogleTranslator
 
@@ -870,9 +870,13 @@ nltk.download('vader_lexicon')
 # load_dotenv()
 
 # Set Google API Key from environment variable
-os.environ["GOOGLE_API_KEY"] = os.getenv(
-    # Fallback for local testing
-    "GOOGLE_API_KEY", "AIzaSyA9F4eR8dUfZQdwUcL-le9RP-G3Mssn7T8")
+# Load the Google API key from environment variables
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    st.error(
+        "Google API key not found. Please set the GOOGLE_API_KEY environment variable.")
+else:
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 # Configure Google Generative AI model
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -925,7 +929,12 @@ def save_question_bank(technology, topics, questions, difficulty, correct_answer
 def create_connection():
     try:
         # Replace with your MongoDB connection string from environment variable or fallback
-        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+       # Load the MongoDB URI from environment variables
+        mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            st.error(
+                "MongoDB URI not found. Please set the MONGO_URI environment variable.")
+            return None
         client = MongoClient(mongo_uri)
         db = client["final_mongodb"]  # Your database name
         return db
