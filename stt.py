@@ -61,6 +61,12 @@ def trainer_dashboard():
     trainer_username = st.session_state.user['username']
 
     # Session state initialization
+     # --- FIX: INITIALIZE CHAT HISTORY HERE ---
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    # -------------------------------------------
+    
+    # Session state initialization for questions
     if 'generated_questions' not in st.session_state:
         st.session_state.generated_questions = []
 
@@ -795,43 +801,33 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 
 
 # Modified save_question_bank to use MongoDB
-def save_question_bank(technology, topics, questions, difficulty, correct_answers, question_type, options=None):
+def save_question_bank(technology, topics, questions, difficulty, correct_answers, question_type, options, trainer_username):
+    """Saves a question bank scoped to a specific trainer."""
     db = create_connection()
     if db is None:
         return None
-
     try:
-        # Prepare document for question_banks collection
         qb_doc = {
+            "trainer_username": trainer_username, # <-- Saves the trainer's name
             "technology": technology,
-            "topics": topics,  # topics is already a list of strings
-            "questions": questions,  # questions is already a single string
+            "topics": topics,
+            "questions": questions,
             "difficulty": difficulty,
             "question_type": question_type,
-            "options": options,  # options is already a single string
+            "options": options,
             "created_at": datetime.now()
         }
-
-        # Insert into question_banks collection
         result_qb = db.question_banks.insert_one(qb_doc)
-        question_bank_id = result_qb.inserted_id  # MongoDB's _id
+        question_bank_id = result_qb.inserted_id
 
-        # Prepare document for question_answers collection
         answer_doc = {
-            "question_bank_id": question_bank_id,  # Link to the question bank
-            "answer_data": correct_answers  # correct_answers is already a single string
+            "question_bank_id": question_bank_id,
+            "answer_data": correct_answers
         }
-
-        # Insert into question_answers collection
         db.question_answers.insert_one(answer_doc)
-
-        # Return as string for consistency with app logic
         return str(question_bank_id)
     except OperationFailure as e:
-        print(f"MongoDB operation error: {e}")
-        return None
-    except Exception as e:
-        print(f"General error in save_question_bank: {e}")
+        st.error(f"MongoDB operation error: {e}")
         return None
 
 # MongoDB connection
