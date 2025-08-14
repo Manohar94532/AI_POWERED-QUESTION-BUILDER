@@ -4007,28 +4007,40 @@ def employee_dashboard(username):
                         )
 
     # --- Prepare from Material Tab ---
+     # --- Prepare from Material Tab (WITH TRANSLATION ADDED) ---
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
         learning_plans = get_user_learning_plans(username)
-
         if not learning_plans:
-            st.info(
-                "No materials available because you have no learning plans assigned.")
+            st.info("No materials available because you have no learning plans assigned.")
         else:
-            user_technologies = sorted(
-                list(set([p['technology'] for p in learning_plans])))
-            selected_tech = st.selectbox(
-                "Select a Curriculum from Your Learning Plan", options=user_technologies)
-
+            user_technologies = sorted(list(set([p['technology'] for p in learning_plans])))
+            selected_tech = st.selectbox("Select a Curriculum from Your Learning Plan", options=user_technologies)
             if selected_tech:
                 curriculum_content = get_curriculum_text(selected_tech)
                 if curriculum_content:
                     st.markdown("---")
-                    st.write(curriculum_content)
-                    # ... (Translation logic can go here) ...
+                    st.subheader("Curriculum Content")
+                    st.info(curriculum_content)
+
+                    # --- NEW TRANSLATION FEATURE ---
+                    st.markdown("---")
+                    st.subheader("Translate Material")
+                    languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish", "French", "German", "Chinese", "Japanese", "Korean"]
+                    selected_language = st.selectbox("Translate to:", languages)
+
+                    if st.button("Translate", key="translate_material"):
+                        with st.spinner(f"Translating to {selected_language}..."):
+                            try:
+                                translated_text = GoogleTranslator(source='auto', target=selected_language.lower()).translate(curriculum_content)
+                                st.subheader(f"Translated Content ({selected_language})")
+                                st.success(translated_text)
+                            except Exception as e:
+                                st.error(f"Translation failed. Error: {e}")
+                    # --- END OF NEW FEATURE ---
                 else:
-                    st.error(
-                        "Could not retrieve content for the selected curriculum.")
+                    st.error("Could not retrieve content for the selected curriculum.")
+
 
 # In employee_dashboard(), replace the entire "Take Assessment" block with this:
 
