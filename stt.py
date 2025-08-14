@@ -2449,59 +2449,29 @@ def update_user_role(username, new_role):
 # Trainer Functions
 
 
-def upload_curriculum(technology, topics, content):
+def upload_curriculum(technology, topics, content, trainer_username):
+    """Saves curriculum scoped to a specific trainer."""
     db = create_connection()
     if db is None:
         return False
-
+        
     try:
-        topics_str = ','.join(topics)
-
-        # Determine the content type (file-like object or string)
-        if hasattr(content, 'read'):
-            # File-like object
-            content_text = content.read().decode('utf-8')
-        else:
-            # String
-            content_text = content
-
-        # Generate questions from the content
-        questions, options, correct_answers = generate_questions(content_text)
-
-        # Convert questions, options and correct_answers to strings
-        questions_str = '|||'.join(questions)
-        # Using '###' as separator for options
-        options_str = '|||'.join(['###'.join(option) for option in options])
-        correct_answers_str = '|||'.join([','.join(map(str, ans)) if isinstance(
-            ans, list) else str(ans) for ans in correct_answers])
-
-        # Insert or update the curriculum using upsert
         curriculum_doc = {
+            "trainer_username": trainer_username, # <-- Saves the trainer's name
             "technology": technology,
-            "topics": topics_str,
-            "filename": "curriculum_" + technology + ".txt",
-            "content": content_text
-        }
-        db.curriculum.update_one({"technology": technology}, {
-                                 "$set": curriculum_doc}, upsert=True)
-
-        # Insert the generated questions into the generated_question_files collection
-        generated_questions_doc = {
-            "technology": technology,
-            "topics": topics_str,
-            "questions": questions_str,
-            "options": options_str,
-            "correct_answers": correct_answers_str,
+            "topics": topics,
+            "content": content,
             "created_at": datetime.now()
         }
-        db.generated_question_files.insert_one(generated_questions_doc)
-
+        # Use upsert to either create a new curriculum or update an existing one
+        db.curriculum.update_one(
+            {"trainer_username": trainer_username, "technology": technology},
+            {"$set": curriculum_doc},
+            upsert=True
+        )
         return True
-    except OperationFailure as err:
-        st.error(f"Database error: {err}")
-        return False
-    except Exception as e:
-        st.error(f"Error in upload_curriculum: {e}")
+    except OperationFailure as e:
+        st.error(f"Database error: {e}")
         return False
 
 
