@@ -15,4 +15,3 @@ requests
 deep_translator
 google-generative-ai
 python-dotenv
-```
