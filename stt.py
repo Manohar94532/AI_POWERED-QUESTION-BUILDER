@@ -4054,76 +4054,168 @@ def employee_dashboard(username):
                     st.error(
                         "Could not retrieve content for the selected curriculum.")
 
-    # --- Take Assessment Tab ---
+    # --- NEW INTERACTIVE ASSESSMENT TAB ---
     elif selected_tab == "Take Assessment":
         st.subheader("Take Assessment ✍️")
-        learning_plans = get_user_learning_plans(username)
-        available_assessments = [
-            p for p in learning_plans if p.get('status') != 'Completed']
 
-        if not available_assessments:
-            st.info(
-                "You have no available assessments. They may be completed or not yet assigned.")
+        # View 1: Assessment Selection
+        if not st.session_state.assessment_started:
+            learning_plans = get_user_learning_plans(username)
+            available_assessments = [p for p in learning_plans if p.get('status') != 'Completed']
+
+            if not available_assessments:
+                st.info("You have no available assessments to take.")
+            else:
+                assessment_options = {p['question_bank_id']: f"{p['technology']} - {p['difficulty']}" for p in available_assessments}
+                selected_qb_id_str = st.selectbox(
+                    "Select an Assessment from Your Learning Plan",
+                    options=list(assessment_options.keys()),
+                    format_func=lambda x: assessment_options[x],
+                    index=None,
+                    placeholder="Choose an assessment..."
+                )
+
+                if selected_qb_id_str:
+                    qb_id = ObjectId(selected_qb_id_str)
+                    all_qbs = get_all_question_banks()
+                    qb_details = next((qb for qb in all_qbs if qb['_id'] == qb_id), None)
+
+                    if qb_details:
+                        questions = [q for q in qb_details.get('questions', '').split('\n') if q.strip()]
+                        time_limit_minutes = len(questions) * 1.5  # 1.5 minutes per question
+
+                        st.info(f"""
+                        **You have selected:** {qb_details['technology']} ({qb_details['difficulty']})
+                        - **Number of Questions:** {len(questions)}
+                        - **Time Limit:** {int(time_limit_minutes)} minutes
+                        """)
+
+                        if st.button("Start Assessment", type="primary"):
+                            st.session_state.assessment_started = True
+                            st.session_state.assessment_finished = False
+                            st.session_state.qb_details = qb_details
+                            st.session_state.questions = questions
+                            st.session_state.correct_answers = get_correct_answers(qb_id)
+                            st.session_state.user_answers = [None] * len(questions)
+                            st.session_state.current_question_index = 0
+                            st.session_state.start_time = datetime.now()
+                            st.session_state.end_time = datetime.now() + timedelta(minutes=time_limit_minutes)
+                            st.rerun()
+
+        # View 2: Assessment in Progress
+        elif st.session_state.assessment_started and not st.session_state.assessment_finished:
+            time_left = st.session_state.end_time - datetime.now()
+            
+            if time_left.total_seconds() < 0:
+                st.session_state.assessment_finished = True
+                st.rerun()
+
+            # --- Persistent Top Bar (Timer and Title) ---
+            top_cols = st.columns([3, 1])
+            with top_cols[0]:
+                st.subheader(f"Assessment: {st.session_state.qb_details['technology']}")
+            with top_cols[1]:
+                st.markdown(f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
+            
+            st.progress(time_left.total_seconds() / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
+
+            # --- Sidebar Navigation ---
+            with st.sidebar:
+                st.write("---")
+                st.subheader("Question Palette")
+                palette_cols = st.columns(5)
+                for i in range(len(st.session_state.questions)):
+                    col = palette_cols[i % 5]
+                    is_current = (i == st.session_state.current_question_index)
+                    is_answered = (st.session_state.user_answers[i] is not None)
+                    
+                    btn_type = "primary" if is_current else ("secondary" if is_answered else "secondary")
+                    btn_label = f"**{i+1}**" if is_current else str(i+1)
+
+                    if col.button(btn_label, key=f"nav_{i}", use_container_width=True, type=btn_type):
+                        st.session_state.current_question_index = i
+                        st.rerun()
+
+            # --- Main Question Area ---
+            q_idx = st.session_state.current_question_index
+            question_data = st.session_state.questions[q_idx]
+            
+            st.markdown(f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
+            st.write(question_data)
+
+            question_type = st.session_state.qb_details.get('question_type')
+            options_from_qb = st.session_state.qb_details.get('options', '').split('|||')
+            
+            # Function to save the answer and go to the next question
+            def record_answer_and_next():
+                # Save the answer from the widget's session key
+                widget_key = f"q_{q_idx}"
+                if widget_key in st.session_state:
+                    st.session_state.user_answers[q_idx] = st.session_state[widget_key]
+                
+                # Move to the next question if not the last one
+                if st.session_state.current_question_index < len(st.session_state.questions) - 1:
+                    st.session_state.current_question_index += 1
+
+            if question_type == "multiple-choice":
+                if q_idx < len(options_from_qb) and options_from_qb[q_idx]:
+                    options = options_from_qb[q_idx].split('###')
+                    st.radio("Select an option", options, key=f"q_{q_idx}", index=None, on_change=record_answer_and_next)
+
+            # --- Bottom Navigation ---
+            st.write("---")
+            nav_cols = st.columns([1, 1, 2, 1, 1])
+            
+            if nav_cols[0].button("Previous", use_container_width=True, disabled=(q_idx == 0)):
+                st.session_state.current_question_index -= 1
+                st.rerun()
+
+            if nav_cols[4].button("Next", use_container_width=True, disabled=(q_idx == len(st.session_state.questions) - 1)):
+                st.session_state.current_question_index += 1
+                st.rerun()
+
+            if nav_cols[2].button("Finish & Submit Assessment", type="primary", use_container_width=True):
+                st.session_state.assessment_finished = True
+                st.rerun()
+
+        # View 3: Results Page
         else:
-            assessment_options = {
-                p['question_bank_id']: f"{p['technology']} - {p['difficulty']}" for p in available_assessments}
-            selected_qb_id_str = st.selectbox(
-                "Select an Assessment from Your Learning Plan",
-                options=list(assessment_options.keys()),
-                format_func=lambda x: assessment_options[x],
-                key="take_assessment_user_select"
-            )
+            st.subheader("Assessment Results")
+            score = 0
+            for i, user_answer in enumerate(st.session_state.user_answers):
+                correct = st.session_state.correct_answers[i]
+                if user_answer is not None and user_answer.strip().lower() == correct.strip().lower():
+                    score += 1
 
-            if selected_qb_id_str:
-                qb_id = ObjectId(selected_qb_id_str)
-                all_qbs = get_all_question_banks()
-                qb_details = next(
-                    (qb for qb in all_qbs if qb['_id'] == qb_id), None)
+            total_questions = len(st.session_state.questions)
+            percentage = (score / total_questions) * 100 if total_questions > 0 else 0
+            
+            st.metric("Final Score", f"{score} / {total_questions}", f"{percentage:.2f}%")
 
-                if qb_details:
-                    questions = qb_details.get('questions', '').split('\n')
-                    correct_answers = get_correct_answers(qb_id)
-                    user_answers = []
-                    question_type = qb_details.get('question_type')
-                    options_from_qb = qb_details.get('options', '').split(
-                        '|||') if qb_details.get('options') else []
+            save_assessment_result(username, st.session_state.qb_details['_id'], score)
+            
+            with st.expander("Review Your Answers", expanded=True):
+                for i, q in enumerate(st.session_state.questions):
+                    st.write(f"**Question {i+1}: {q}**")
+                    user_ans = st.session_state.user_answers[i]
+                    correct_ans = st.session_state.correct_answers[i]
+                    
+                    if user_ans and user_ans.strip().lower() == correct_ans.strip().lower():
+                        st.success(f"✔️ Your answer: {user_ans}")
+                    else:
+                        st.error(f"❌ Your answer: {user_ans if user_ans else 'Not Answered'}")
+                        st.info(f"Correct answer: {correct_ans}")
+                    st.write("---")
 
-                    for i, question in enumerate(questions):
-                        if not question.strip():
-                            continue
-                        st.write(f"**Q{i+1}:** {question.strip()}")
-
-                        # CORRECTED a_id_str TO selected_qb_id_str
-                        if question_type == "multiple-choice":
-                            if i < len(options_from_qb) and options_from_qb[i]:
-                                current_options = options_from_qb[i].split(
-                                    '###')
-                                answer = st.radio(
-                                    "Select an option", current_options, key=f"q_{i}_{selected_qb_id_str}")
-                                user_answers.append(answer)
-                            else:
-                                user_answers.append("")
-                        elif question_type == "fill-in-the-blank":
-                            answer = st.text_input(
-                                "Enter your answer", key=f"q_{i}_{selected_qb_id_str}")
-                            user_answers.append(answer)
-                        else:  # Subjective
-                            answer = st.text_area(
-                                "Enter your answer", key=f"q_{i}_{selected_qb_id_str}")
-                            user_answers.append(answer)
-
-                    if st.button("Submit Assessment"):
-                        score = 0
-                        valid_questions = [q for q in questions if q.strip()]
-                        for i, user_answer in enumerate(user_answers):
-                            if i < len(correct_answers) and user_answer.strip().lower() == correct_answers[i].strip().lower():
-                                score += 1
-
-                        st.markdown(
-                            f"### Final Score: {score}/{len(valid_questions)}")
-                        save_assessment_result(
-                            st.session_state.user['username'], qb_id, score)
-
+            if st.button("Take Another Assessment"):
+                # Reset state variables
+                st.session_state.assessment_started = False
+                st.session_state.assessment_finished = False
+                # Clean up specific assessment data
+                for key in ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
     elif selected_tab == "Your Progress":
         st.subheader("Your Progress 📊")
         completed_assessments = get_completed_assessments(username)
