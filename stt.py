@@ -50,7 +50,7 @@ from deep_translator import GoogleTranslator
 
 
 # Initialize translator (from google_trans_new, if used elsewhere)
-translator = google_translator()
+#translator = google_translator()
 
 
 st.set_page_config(layout="wide")
