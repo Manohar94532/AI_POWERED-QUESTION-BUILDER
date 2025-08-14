@@ -44,15 +44,9 @@ import plotly.express as px
 from streamlit_lottie import st_lottie  # Import the Lottie function
 import requests  # To fetch the Lottie animation
 import googletrans
-#from google_trans_new import google_translator
+from google_trans_new import google_translator
 # Using deep-translator as it's more reliable
 from deep_translator import GoogleTranslator
-
-# NLTK specific download
-try:
-    nltk.data.find('sentiment/vader_lexicon.zip')
-except nltk.downloader.DownloadError:
-    nltk.download('vader_lexicon')
 
 
 # Initialize translator (from google_trans_new, if used elsewhere)
@@ -62,167 +56,256 @@ translator = google_translator()
 st.set_page_config(layout="wide")
 
 
-# --- TRAINER DASHBOARD ---
 def trainer_dashboard():
-    trainer_username = st.session_state.user['username']
-
-    # Session state initialization
+    # Initialize session state variables if they do not exist
     if 'generated_questions' not in st.session_state:
         st.session_state.generated_questions = []
+    if 'generated_options' not in st.session_state:
+        st.session_state.generated_options = []
+    if 'generated_qb_id' not in st.session_state:
+        st.session_state.generated_qb_id = None
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []  # Initialize chat history
 
     with st.sidebar:
+        # Create a navigation bar using option_menu
         selected = option_menu(
-            menu_title="Trainer Dashboard",
+            menu_title="Trainer dashboard",  # required
             options=[
-                "Assign Employees", "Upload Curriculum", "Generate Question Bank", "View Questions",
-                "Assign Learning Plan", "Review Feedback", "Employee Performance", "Chatbot"
-            ],
-            icons=[
-                "person-plus", "upload", "question-circle", "eye", "card-checklist",
-                "check2-circle", "bar-chart-line", "chat-dots"
-            ],
-            menu_icon="briefcase", default_index=0
+                "Upload Curriculum",
+                "Generate Question Bank",
+                "View Questions",
+                "Assign Learning Plan",
+                "Review Feedback",
+                "Curriculum Overview",  # Updated icon added below
+                "Download Questions",
+                "Employee Performance",
+                "Generate Questions",
+                "Chatbot"
+            ],  # required
+            icons=["upload", "question-circle", "eye", "person-plus", "check-circle",
+                   "book", "download", "bar-chart", "magic", "chat"],  # optional
+            menu_icon="cast",  # optional
+            default_index=0,  # optional
+            orientation="vertical",
         )
 
      # Initialize question_banks to avoid UnboundLocalError
     question_banks = []
     # Display content based on the selected option
-
-    # --- NEW: Assign Employees Page ---
-    if selected == "Assign Employees":
-        st.subheader("Assign New Employees 🧑‍🏫")
-        unassigned_employees = get_unassigned_employees()
-
-        if not unassigned_employees:
-            st.info("There are currently no unassigned employees.")
-        else:
-            employee_usernames = [emp['username']
-                                  for emp in unassigned_employees]
-            selected_employees = st.multiselect(
-                "Select employees to assign to yourself:",
-                options=employee_usernames
-            )
-            if st.button("Assign Selected Employees"):
-                if not selected_employees:
-                    st.warning("Please select at least one employee.")
-                elif assign_employees_to_trainer(selected_employees, trainer_username):
-                    st.success(
-                        f"Successfully assigned {', '.join(selected_employees)}!")
-                    st.rerun()
-                else:
-                    st.error("An error occurred during assignment.")
-
-    elif selected == "Upload Curriculum":
+    if selected == "Upload Curriculum":
         st.subheader("Upload Curriculum 📁")
-        technology = st.text_input("Technology")
-        topics = st.text_area("Topics (one per line)")
-        uploaded_file = st.file_uploader("Upload curriculum file", type=[
-                                         'pdf', 'docx', 'txt', 'pptx'])
+        technology = st.text_input("Technology", key="upload_technology")
+        topics = st.text_area("Topics (one per line)", key="upload_topics")
+        uploaded_file = st.file_uploader(
+            "Upload curriculum file", type=None, key="curriculum_file")
 
-        if st.button("Upload Curriculum"):
-            if technology and uploaded_file:
-                content = extract_text_from_file(uploaded_file)
-                topic_list = [t.strip()
-                              for t in topics.split('\n') if t.strip()]
-                if upload_curriculum(technology, topic_list, content, trainer_username):
-                    st.success("Curriculum uploaded successfully!")
-                else:
-                    st.error("Failed to upload curriculum.")
+        if st.button("Upload Curriculum", key="upload_curriculum_button"):
+            topic_list = [topic.strip()
+                          for topic in topics.split('\n') if topic.strip()]
+            content = ""
+
+            if uploaded_file is not None:
+                try:
+                    file_content = extract_text_from_file(uploaded_file)
+                    content = file_content
+                    topic_list.extend(
+                        [topic.strip() for topic in file_content.split('\n') if topic.strip()])
+                    topic_list = list(set(topic_list))  # Remove duplicates
+                except ValueError as e:
+                    st.error(f"Error processing file: {str(e)}")
+                    return
+
+            if upload_curriculum(technology, topic_list, content):
+                st.success("Curriculum uploaded successfully!")
             else:
-                st.warning(
-                    "Please provide a technology name and upload a file.")
+                st.error("Failed to upload curriculum")
 
-    # --- Generate Question Bank Page (Modified) ---
     elif selected == "Generate Question Bank":
         st.subheader("Generate Question Bank 📚")
-        curricula = get_trainer_curricula(trainer_username)
+        curricula = get_all_curricula()
+
         if not curricula:
             st.warning(
                 "No curricula available. Please upload a curriculum first.")
         else:
-            curriculum_map = {c['technology']: c['content'] for c in curricula}
-            selected_tech = st.selectbox(
-                "Select Curriculum", options=list(curriculum_map.keys()))
+            selected_curriculum = st.selectbox("Select Curriculum", options=[
+                                               c['technology'] for c in curricula], key="selected_curriculum")
+            if selected_curriculum:
+                qb_technology = selected_curriculum
+                st.write(f"Selected Technology: {qb_technology}")
+                num_questions = st.number_input(
+                    "Number of Questions", min_value=1, value=10, key="num_questions")
+                question_type = st.selectbox("Question Type", [
+                                             "multiple-choice", "subjective", "fill-in-the-blank"], key="question_type")
+                difficulty = st.selectbox(
+                    "Difficulty", ["Easy", "Medium", "Hard"], key="question_difficulty")
 
-            num_questions = st.number_input(
-                "Number of Questions", min_value=1, value=5)
-            question_type = st.selectbox(
-                "Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"])
-            difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+                if st.button("Generate Question Bank", key="generate_qb_button"):
+                    curriculum_content = get_curriculum_text(qb_technology)
+                    if curriculum_content:
+                        questions, options, correct_answers = generate_questions(
+                            curriculum_content, num_questions, question_type)
 
-            if st.button("Generate Question Bank"):
-                content = curriculum_map.get(selected_tech)
-                if content:
-                    questions, options, correct_answers = generate_questions(
-                        content, num_questions, question_type)
-                    question_bank_id = save_question_bank(
-                        selected_tech, [], '\n'.join(questions), difficulty,
-                        '\n'.join(correct_answers), question_type,
-                        '|||'.join(['###'.join(opt) for opt in options]),
-                        trainer_username
-                    )
-                    if question_bank_id:
-                        st.success(
-                            f"Question Bank generated successfully! ID: {question_bank_id}")
+                        question_bank_id = save_question_bank(
+                            qb_technology,
+                            [],
+                            '\n'.join(questions),
+                            difficulty,
+                            '\n'.join(correct_answers),
+                            question_type=question_type,
+                            options='\n'.join(['###'.join(opt)
+                                              for opt in options])
+                        )
+
+                        if question_bank_id:
+                            st.success(
+                                f"Question Bank generated successfully! ID: {question_bank_id}")
+                            st.session_state.generated_questions = questions
+                            st.session_state.generated_options = options
+                            st.session_state.generated_qb_id = question_bank_id
+                        else:
+                            st.error("Failed to save question bank")
                     else:
-                        st.error("Failed to save question bank.")
-                else:
-                    st.error("Failed to retrieve curriculum content.")
+                        st.error("Failed to retrieve curriculum content")
 
-    # --- View Questions Page (Modified) ---
     elif selected == "View Questions":
-        st.subheader("View Your Question Banks 📖")
-        question_banks = get_trainer_question_banks(trainer_username)
+        st.subheader("View Questions 📖")
+        question_banks = get_all_question_banks()  # Fetch all question banks
+
         if not question_banks:
-            st.info("You have not created any question banks yet.")
+            st.info("No question banks available yet.")
         else:
-            qb_options = {str(
-                qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
-            selected_id = st.selectbox("Select Question Bank", options=qb_options.keys(
-            ), format_func=lambda x: qb_options[x])
+            # Create a container for search and dropdown
+            search_col1, search_col2 = st.columns([1, 2])
 
-            if selected_id:
-                qb_details = next(
-                    (qb for qb in question_banks if str(qb['_id']) == selected_id), None)
-                if qb_details:
-                    st.info(
-                        f"**Technology:** {qb_details['technology']} | **Difficulty:** {qb_details['difficulty']}")
-                    st.write("---")
-                    questions = qb_details.get('questions', '').split('\n')
-                    for i, q in enumerate(questions, 1):
-                        st.write(f"**Q{i}:** {q}")
-
-    # --- Assign Learning Plan Page (Modified) ---
-    elif selected == "Assign Learning Plan":
-        st.subheader("Assign Learning Plan to Your Employees 🧑‍🏫")
-        assigned_employees = get_assigned_employees(trainer_username)
-        question_banks = get_trainer_question_banks(trainer_username)
-
-        if not assigned_employees:
-            st.warning(
-                "You have no employees assigned to you. Please assign employees first.")
-        elif not question_banks:
-            st.warning(
-                "You have no question banks to assign. Please create one first.")
-        else:
-            employee_options = [emp['username'] for emp in assigned_employees]
-            selected_employee = st.selectbox(
-                "Select Employee", options=employee_options)
-
-            qb_options = {str(
-                qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
-            selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(
-                qb_options.keys()), format_func=lambda x: qb_options[x])
-
-            if st.button("Assign Plan"):
-                # You would need a function to create/assign the plan
-                # For now, we can just send a notification as a placeholder
-                send_notification(
-                    recipient_role="employee",
-                    message=f"A new learning plan '{qb_options[selected_qb_id]}' has been assigned to you by {trainer_username}.",
-                    username=selected_employee
+            with search_col1:
+                search_id = st.text_input(
+                    "Search by ID",
+                    key="qb_search_id",
+                    placeholder="Enter ID...",
+                    help="Enter a question bank ID to quickly find it"
                 )
-                st.success(f"Learning plan assigned to {selected_employee}!")
+
+            # Format options for the dropdown
+            dropdown_options = [
+                (str(qb['_id']), f"{qb['technology']} - {qb['difficulty']}") for qb in question_banks]
+
+            # Filter dropdown options if ID is entered
+            if search_id:
+                try:
+                    # MongoDB uses ObjectId for _id, so convert search_id to ObjectId
+                    search_object_id = ObjectId(search_id)
+                    dropdown_options = [(str(qb['_id']), f"{qb['technology']} - {qb['difficulty']}")
+                                        for qb in question_banks if qb['_id'] == search_object_id]
+                    if not dropdown_options:
+                        st.warning(
+                            f"No question bank found with ID: {search_id}")
+                except Exception:  # Catching general exception for ObjectId conversion errors
+                    st.error("Please enter a valid ID")
+
+            with search_col2:
+                selected_qb = st.selectbox(
+                    "Select Question Bank",
+                    options=dropdown_options,
+                    format_func=lambda x: f"ID: {x[0]} - {x[1]}",
+                    key="view_qb_select",
+                    help="Select a question bank from the dropdown or use the ID search to filter"
+                )
+
+            # Display question bank details if selected
+            if selected_qb:
+                qb_id_str, _ = selected_qb
+                # Convert back to ObjectId for database query
+                qb_id = ObjectId(qb_id_str)
+                qb_details = next(
+                    (qb for qb in question_banks if qb['_id'] == qb_id), None)
+
+                if qb_details:
+                    # Display metadata in columns
+                    # Added an extra column for updated timestamp
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.info(f"**ID:** {qb_details['_id']}")
+                    with col2:
+                        st.info(f"**Technology:** {qb_details['technology']}")
+                    with col3:
+                        st.info(f"**Difficulty:** {qb_details['difficulty']}")
+
+                    st.write("---")  # Add a separator
+                    st.subheader("Questions:")
+
+                    # Check if these are the recently generated questions
+                    if 'generated_qb_id' in st.session_state and st.session_state.generated_qb_id == str(qb_details['_id']):
+                        for i, (question, options) in enumerate(zip(st.session_state.generated_questions, st.session_state.generated_options), 1):
+                            st.write(f"**Question {i}:** {question}")
+                            for j, option in enumerate(options):
+                                st.write(f"{chr(65+j)}) {option}")
+                            st.write("")  # Add space between questions
+                    else:
+                        # Use the questions from qb_details
+                        questions = qb_details.get('questions', '').split('\n')
+                        for i, question in enumerate(questions, 1):
+                            if question.strip():  # Only show non-empty questions
+                                st.write(f"**Question {i}:** {question}")
+
+                                # Display options if the question type is multiple-choice
+                                if qb_details.get('question_type', '') == 'multiple-choice':
+                                    options = qb_details.get(
+                                        'answer', '').split('###')
+                                    if options:
+                                        for j, option in enumerate(options):
+                                            if option.strip():  # Only show non-empty options
+                                                st.write(
+                                                    f"{chr(65 + j)}) {option.strip()}")
+                                st.write("")  # Add space between questions
+
+    # Inside trainer_dashboard(), after the "View Questions" block and before "Review Feedback"
+
+    elif selected == "Assign Learning Plan":
+        st.subheader("Assign Learning Plan to Employee 🧑‍🏫")
+        users = get_all_users()
+        # Filter for users who are employees
+        employees = [user['username']
+                     for user in users if user.get('role') == 'Employee']
+
+        if not employees:
+            st.warning("No employees found in the system.")
+            return
+
+        selected_employee = st.selectbox("Select Employee", options=employees)
+
+        question_banks = get_all_question_banks()
+        if not question_banks:
+            st.warning("No question banks are available to assign.")
+            return
+
+        # Create a user-friendly dropdown for question banks
+        qb_options = {str(
+            qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
+        selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(
+            qb_options.keys()), format_func=lambda x: qb_options[x])
+
+        if st.button("Assign Plan", key="assign_plan_button"):
+            if selected_employee and selected_qb_id:
+                # This calls the correct function to create a plan assigned to a user
+                # Ensure you have the 'create_learning_plan' function in your file
+                plan_id = create_learning_plan(
+                    ObjectId(selected_qb_id), selected_employee)
+                if plan_id:
+                    st.success(
+                        f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_employee}!")
+                    # Notify the employee about their new assignment
+                    send_notification(
+                        recipient_role="employee",
+                        message=f"New plan assigned: '{qb_options[selected_qb_id]}'.",
+                        username=selected_employee
+                    )
+                else:
+                    st.error(
+                        "Failed to assign learning plan. Check if it's already assigned.")
+            else:
+                st.error("Please select both an employee and a question bank.")
 
     elif selected == "Review Feedback":
         st.subheader("Review Feedback 🔍")
@@ -839,69 +922,16 @@ def save_question_bank(technology, topics, questions, difficulty, correct_answer
 # MongoDB connection
 
 
-@st.cache_resource
 def create_connection():
-    """Create and cache a MongoDB database connection."""
-    mongo_uri = os.getenv("MONGO_URI")
-    if not mongo_uri:
-        st.error(
-            "MongoDB URI not found. Please set the MONGO_URI environment variable.")
-        return None
     try:
+        # Replace with your MongoDB connection string from environment variable or fallback
+        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
         client = MongoClient(mongo_uri)
-        db = client["final_mongodb"]
+        db = client["final_mongodb"]  # Your database name
         return db
     except ConnectionFailure as e:
         st.error(f"Error connecting to MongoDB: {e}")
         return None
-
-
-db = create_connection()
-
-
-def get_unassigned_employees():
-    """Fetches employees who are not yet assigned to any trainer."""
-    if db is None:
-        return []
-    try:
-        unassigned = db.users.find({
-            "role": "Employee",
-            "assigned_trainer": None
-        })
-        return list(unassigned)
-    except OperationFailure as e:
-        st.error(f"DB Error fetching unassigned employees: {e}")
-        return []
-
-
-def assign_employees_to_trainer(employee_usernames, trainer_username):
-    """Assigns a list of employees to the specified trainer."""
-    if db is None:
-        return False
-    try:
-        result = db.users.update_many(
-            {"username": {"$in": employee_usernames}},
-            {"$set": {"assigned_trainer": trainer_username}}
-        )
-        return result.modified_count > 0
-    except OperationFailure as e:
-        st.error(f"DB Error assigning employees: {e}")
-        return False
-
-
-def get_assigned_employees(trainer_username):
-    """Fetches all employees assigned to a specific trainer."""
-    if db is None:
-        return []
-    try:
-        employees = db.users.find({
-            "role": "Employee",
-            "assigned_trainer": trainer_username
-        })
-        return list(employees)
-    except OperationFailure as e:
-        st.error(f"DB Error fetching assigned employees: {e}")
-        return []
 
 
 def ascii_to_string(ascii_list):
@@ -1127,15 +1157,19 @@ def login_user(username, password):
 
 
 def register_user(email, username, password, role):
+    # Validate email format
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if not re.match(email_regex, email):
+        st.error("Invalid email format. Please enter a valid email address.")
+        return False
+
+    db = create_connection()
     if db is None:
         return False
 
-    # Basic validation
-    if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
-        st.error("Invalid email format.")
-        return False
-    if db.users.find_one({"username": username}):
-        st.error("Username already exists.")
+    existing_user = db.users.find_one({"username": username})
+
+    if existing_user:
         return False
 
     hashed_password = generate_password_hash(password)
@@ -1143,21 +1177,10 @@ def register_user(email, username, password, role):
         "email": email,
         "username": username,
         "password": hashed_password,
-        "role": role,
+        "role": role
     }
-    # NEW: Set assigned_trainer to None for new employees
-    if role == "Employee":
-        user_data["assigned_trainer"] = None
-
     try:
         db.users.insert_one(user_data)
-        # NEW: Notify trainers of new employee registration
-        if role == "Employee":
-            send_notification(
-                recipient_role="trainer",
-                message=f"New employee '{username}' has registered and needs assignment.",
-                username=None  # General notification for all trainers
-            )
         return True
     except OperationFailure as e:
         st.error(f"Database error during registration: {e}")
@@ -1260,26 +1283,59 @@ def update_user_role(username, new_role):
 # Trainer Functions
 
 
-def upload_curriculum(technology, topics, content, trainer_username):
-    """Saves curriculum scoped to a specific trainer."""
+def upload_curriculum(technology, topics, content):
+    db = create_connection()
     if db is None:
         return False
+
     try:
+        topics_str = ','.join(topics)
+
+        # Determine the content type (file-like object or string)
+        if hasattr(content, 'read'):
+            # File-like object
+            content_text = content.read().decode('utf-8')
+        else:
+            # String
+            content_text = content
+
+        # Generate questions from the content
+        questions, options, correct_answers = generate_questions(content_text)
+
+        # Convert questions, options and correct_answers to strings
+        questions_str = '|||'.join(questions)
+        # Using '###' as separator for options
+        options_str = '|||'.join(['###'.join(option) for option in options])
+        correct_answers_str = '|||'.join([','.join(map(str, ans)) if isinstance(
+            ans, list) else str(ans) for ans in correct_answers])
+
+        # Insert or update the curriculum using upsert
         curriculum_doc = {
-            "trainer_username": trainer_username,
             "technology": technology,
-            "topics": topics,
-            "content": content,
+            "topics": topics_str,
+            "filename": "curriculum_" + technology + ".txt",
+            "content": content_text
+        }
+        db.curriculum.update_one({"technology": technology}, {
+                                 "$set": curriculum_doc}, upsert=True)
+
+        # Insert the generated questions into the generated_question_files collection
+        generated_questions_doc = {
+            "technology": technology,
+            "topics": topics_str,
+            "questions": questions_str,
+            "options": options_str,
+            "correct_answers": correct_answers_str,
             "created_at": datetime.now()
         }
-        db.curriculum.update_one(
-            {"trainer_username": trainer_username, "technology": technology},
-            {"$set": curriculum_doc},
-            upsert=True
-        )
+        db.generated_question_files.insert_one(generated_questions_doc)
+
         return True
-    except OperationFailure as e:
-        st.error(f"Database error: {e}")
+    except OperationFailure as err:
+        st.error(f"Database error: {err}")
+        return False
+    except Exception as e:
+        st.error(f"Error in upload_curriculum: {e}")
         return False
 
 
@@ -1302,55 +1358,46 @@ def get_curriculum_text(technology):
         return None
 
 
-def save_question_bank(technology, topics, questions, difficulty, correct_answers, question_type, options, trainer_username):
-    """Saves a question bank scoped to a specific trainer."""
+def save_question_bank(technology, topics, questions, difficulty, correct_answers, question_type, options=None):  # ✅ Correct one
+
+    db = create_connection()
     if db is None:
-        return None
+        return False
+
     try:
+        # Prepare document for question_banks collection
         qb_doc = {
-            "trainer_username": trainer_username,
             "technology": technology,
-            "topics": topics,
-            "questions": questions,
+            "topics": topics,  # topics is already a string
+            "questions": questions,  # questions is already a single string
             "difficulty": difficulty,
             "question_type": question_type,
-            "options": options,
+            "options": options,  # options is already a single string
             "created_at": datetime.now()
         }
+
+        # Insert into question_banks collection
         result_qb = db.question_banks.insert_one(qb_doc)
-        question_bank_id = result_qb.inserted_id
+        question_bank_id = result_qb.inserted_id  # MongoDB's _id
 
+        # Prepare document for question_answers collection
         answer_doc = {
-            "question_bank_id": question_bank_id,
-            "answer_data": correct_answers
+            "question_bank_id": question_bank_id,  # Link to the question bank
+            "answer_data": correct_answers  # correct_answers is already a single string
         }
+
+        # Insert into question_answers collection
         db.question_answers.insert_one(answer_doc)
+
+        # Return as string for consistency with app logic
         return str(question_bank_id)
-    except OperationFailure as e:
-        st.error(f"MongoDB operation error: {e}")
-        return None
 
-
-def get_trainer_question_banks(trainer_username):
-    """Fetches all question banks for a specific trainer."""
-    if db is None:
-        return []
-    try:
-        return list(db.question_banks.find({"trainer_username": trainer_username}))
-    except OperationFailure as e:
-        st.error(f"Database error: {e}")
-        return []
-
-
-def get_trainer_curricula(trainer_username):
-    """Fetches all curricula for a specific trainer."""
-    if db is None:
-        return []
-    try:
-        return list(db.curriculum.find({"trainer_username": trainer_username}))
-    except OperationFailure as e:
-        st.error(f"Database error: {e}")
-        return []
+    except OperationFailure as err:
+        st.error(f"Database error: {err}")
+        return False
+    except Exception as e:
+        st.error(f"General error in save_question_bank: {e}")
+        return False
 
 
 def get_topics_for_technology(technology):
