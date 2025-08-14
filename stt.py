@@ -774,8 +774,12 @@ def trainer_dashboard():
 
 
 # Download NLTK data
-nltk.download('vader_lexicon')
-
+try:
+    nltk.data.find('sentiment/vader_lexicon.zip')
+except LookupError:
+    st.info("Downloading NLTK 'vader_lexicon' for sentiment analysis...")
+    nltk.download('vader_lexicon')
+    st.success("Download complete.")
 # Load .env file (if used locally for development)
 # from dotenv import load_dotenv
 # load_dotenv()
