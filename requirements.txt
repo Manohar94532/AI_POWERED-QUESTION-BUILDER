@@ -1,7 +1,7 @@
 streamlit==1.34.0
 streamlit-lottie==0.0.5
 streamlit-option-menu==0.3.6
-streamlit-chat==0.0.2
+streamlit-chat==0.1.1
 pymongo==4.7.2
 python-dotenv==1.0.1
 PyPDF2==3.0.1
