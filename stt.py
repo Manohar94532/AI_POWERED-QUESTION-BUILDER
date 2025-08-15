@@ -413,9 +413,12 @@ def trainer_dashboard():
                             mime='text/csv'
                         )
 
-    elif selected == "employee Performance":
-        st.subheader("employee Performance 📈")
-        employees = get_all_users()
+    # In trainer_dashboard()
+
+    elif selected == "Employee Performance":
+        st.subheader("Employee Performance 📈")
+        # --- THIS IS THE FIX ---
+        employees = get_assigned_employees(trainer_username) # <-- NOW IT ONLY GETS THE TRAINER'S EMPLOYEES
 
         if employees:
             selected_employee = st.selectbox(
