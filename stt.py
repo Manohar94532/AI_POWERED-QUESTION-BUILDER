@@ -1180,10 +1180,11 @@ def get_system_stats():
 # NEW: Fetches learning plans specifically for the logged-in user.
 
 
+# In your stt.py file, replace this entire function
+
 def get_user_learning_plans(username):
     """
-    Retrieves all learning plans assigned to a specific user by joining
-    learning_plans and question_banks collections.
+    Retrieves all learning plans for a user, including the trainer's username.
     """
     db = create_connection()
     if db is None:
@@ -1199,11 +1200,12 @@ def get_user_learning_plans(username):
             }},
             {"$unwind": "$qb_details"},
             {"$project": {
-                "_id": 1,  # The learning plan's unique ID
+                "_id": 1,
                 "status": 1,
                 "start_date": 1,
                 "end_date": 1,
                 "estimated_time": 1,
+                "trainer_username": 1,  # <-- CRITICAL FIX: Add this line
                 "question_bank_id": "$qb_details._id",
                 "technology": "$qb_details.technology",
                 "difficulty": "$qb_details.difficulty"
@@ -1217,7 +1219,6 @@ def get_user_learning_plans(username):
     except OperationFailure as e:
         st.error(f"Database error retrieving learning plans: {e}")
         return []
-
 
 def get_all_users():
     db = create_connection()
@@ -1278,19 +1279,23 @@ def upload_curriculum(technology, topics, content, trainer_username):
         return False
 
 
-def get_curriculum_text(technology):
+# In your stt.py file, replace this entire function
+
+def get_curriculum_text(technology, trainer_username):
+    """Fetches the curriculum content for a specific technology from a specific trainer."""
     db = create_connection()
     if db is None:
         return None
-
     try:
+        # Find the curriculum that matches both the technology AND the trainer
         result = db.curriculum.find_one(
-            {"technology": technology}, {"topics": 1, "_id": 0})
+            {"technology": technology, "trainer_username": trainer_username},
+            {"content": 1, "_id": 0}  # <-- CRITICAL FIX: Fetch 'content', not 'topics'
+        )
         if result:
-            return result.get('topics')
+            return result.get('content')
         else:
-            st.error(
-                f"No curriculum content found for technology: {technology}")
+            # This case now correctly means no content was found for that specific trainer
             return None
     except OperationFailure as err:
         st.error(f"Database error: {err}")
@@ -3965,16 +3970,18 @@ def employee_dashboard(username):
 
     # In employee_dashboard(), replace the "Prepare from Material" block
 
+    # In employee_dashboard(), replace the "Prepare from Material" block with this:
+
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
-        # This function correctly fetches only the plans assigned to this user
         learning_plans = get_user_learning_plans(username)
         
         if not learning_plans:
             st.info("No materials are available because no learning plans have been assigned to you.")
         else:
-            # Create a list of technologies from the user's assigned plans
-            user_technologies = sorted(list(set([plan['technology'] for plan in learning_plans])))
+            # Create a dictionary to easily look up trainer by technology
+            tech_to_plan_map = {plan['technology']: plan for plan in learning_plans}
+            user_technologies = sorted(list(tech_to_plan_map.keys()))
             
             selected_tech = st.selectbox(
                 "Select a Curriculum from Your Learning Plan",
@@ -3982,17 +3989,23 @@ def employee_dashboard(username):
             )
 
             if selected_tech:
-                # We need a way to get the curriculum content for the selected technology
-                # We will assume a function `get_curriculum_content_by_tech` exists for this
-                curriculum_content = get_curriculum_text(selected_tech) 
+                # Get the specific plan details for the selected technology
+                plan_details = tech_to_plan_map[selected_tech]
+                trainer = plan_details.get('trainer_username')
                 
-                if curriculum_content:
-                    st.markdown("---")
-                    st.subheader("Curriculum Content")
-                    st.info(curriculum_content)
-                    # (Your translation feature can be added here)
+                if trainer:
+                    # Pass both technology and trainer to get the correct content
+                    curriculum_content = get_curriculum_text(selected_tech, trainer)
+                    
+                    if curriculum_content:
+                        st.markdown("---")
+                        st.subheader("Curriculum Content")
+                        st.info(curriculum_content)
+                        # (Your translation feature will now work correctly with this content)
+                    else:
+                        st.error("Could not retrieve content for the selected curriculum. The assigned trainer may not have uploaded the material yet.")
                 else:
-                    st.error("Could not retrieve content for the selected curriculum.")
+                    st.error("Could not identify the trainer for this learning plan.")
 
     # --- Interactive Assessment Tab ---
     # In employee_dashboard(), replace the entire "Take Assessment" block with this:
