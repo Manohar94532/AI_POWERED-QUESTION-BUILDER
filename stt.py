@@ -5124,7 +5124,7 @@ def main():
 
         # Column 2: User authentication
         with col2:
-            st.title("Automated Question Builder")
+            st.title("AI-Powered Learning Support")
             st.write("")
             st.write("")
             st.write("")
