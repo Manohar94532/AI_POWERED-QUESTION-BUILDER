@@ -214,6 +214,7 @@ def trainer_dashboard():
             if st.button("Assign Plan"):
                 # --- THIS IS THE CORRECTED FUNCTION CALL ---
                 plan_id = create_learning_plan(ObjectId(selected_qb_id), selected_employee, trainer_username)
+                
                 if plan_id:
                     st.success(f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_employee}!")
                     send_notification(
@@ -4879,6 +4880,8 @@ def get_next_question_bank_id(qb_id):
 
 # REFACTORED: To create a learning plan, initiated by a trainer.
 # In your stt.py file, replace this function
+# In your stt.py file, replace this entire function
+
 def create_learning_plan(qb_id_obj, username, trainer_username):
     """
     Creates a learning plan record linking a user, a question bank,
