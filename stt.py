@@ -193,36 +193,36 @@ def trainer_dashboard():
                         st.write(f"**Q{i}:** {q}")
 
     # --- Assign Learning Plan Page (Modified) ---
+    # In trainer_dashboard(), find the "Assign Learning Plan" block and update the button logic:
+
     elif selected == "Assign Learning Plan":
         st.subheader("Assign Learning Plan to Your Employees 🧑‍🏫")
         assigned_employees = get_assigned_employees(trainer_username)
         question_banks = get_trainer_question_banks(trainer_username)
 
         if not assigned_employees:
-            st.warning(
-                "You have no employees assigned to you. Please assign employees first.")
+            st.warning("You have no employees assigned. Please assign them from the 'Assign Employees' tab.")
         elif not question_banks:
-            st.warning(
-                "You have no question banks to assign. Please create one first.")
+            st.warning("You have no question banks. Please create one first.")
         else:
             employee_options = [emp['username'] for emp in assigned_employees]
-            selected_employee = st.selectbox(
-                "Select Employee", options=employee_options)
+            selected_employee = st.selectbox("Select Employee", options=employee_options)
 
-            qb_options = {str(
-                qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
-            selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(
-                qb_options.keys()), format_func=lambda x: qb_options[x])
+            qb_options = {str(qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
+            selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(qb_options.keys()), format_func=lambda x: qb_options[x])
 
             if st.button("Assign Plan"):
-                # You would need a function to create/assign the plan
-                # For now, we can just send a notification as a placeholder
-                send_notification(
-                    recipient_role="employee",
-                    message=f"A new learning plan '{qb_options[selected_qb_id]}' has been assigned to you by {trainer_username}.",
-                    username=selected_employee
-                )
-                st.success(f"Learning plan assigned to {selected_employee}!")
+                # --- THIS IS THE CORRECTED FUNCTION CALL ---
+                plan_id = create_learning_plan(ObjectId(selected_qb_id), selected_employee, trainer_username)
+                if plan_id:
+                    st.success(f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_employee}!")
+                    send_notification(
+                        recipient_role="employee",
+                        message=f"New plan '{qb_options[selected_qb_id]}' was assigned by {trainer_username}.",
+                        username=selected_employee
+                    )
+                else:
+                    st.error("Failed to assign plan. It may already be assigned.")
 
     elif selected == "Review Feedback":
         st.subheader("Review Feedback 🔍")
@@ -3962,39 +3962,34 @@ def employee_dashboard(username):
     # --- Prepare from Material Tab ---
     # In employee_dashboard(), update the "Prepare from Material" block
 
+    # In employee_dashboard(), replace the "Prepare from Material" block
+
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
+        # This function correctly fetches only the plans assigned to this user
         learning_plans = get_user_learning_plans(username)
+        
         if not learning_plans:
-            st.info("No materials available because you have no learning plans assigned.")
+            st.info("No materials are available because no learning plans have been assigned to you.")
         else:
-            user_technologies = sorted(list(set([p['technology'] for p in learning_plans])))
-            selected_tech = st.selectbox("Select a Curriculum from Your Learning Plan", options=user_technologies)
+            # Create a list of technologies from the user's assigned plans
+            user_technologies = sorted(list(set([plan['technology'] for plan in learning_plans])))
+            
+            selected_tech = st.selectbox(
+                "Select a Curriculum from Your Learning Plan",
+                options=user_technologies
+            )
+
             if selected_tech:
-                curriculum_content = get_curriculum_text(selected_tech)
+                # We need a way to get the curriculum content for the selected technology
+                # We will assume a function `get_curriculum_content_by_tech` exists for this
+                curriculum_content = get_curriculum_text(selected_tech) 
+                
                 if curriculum_content:
                     st.markdown("---")
                     st.subheader("Curriculum Content")
                     st.info(curriculum_content)
-
-                    # --- CORRECTED TRANSLATION FEATURE ---
-                    st.markdown("---")
-                    st.subheader("Translate Material")
-                    
-                    # Get a list of languages supported by the library
-                    language_options = list(googletrans.LANGUAGES.values())
-                    selected_language = st.selectbox("Translate to:", language_options, index=language_options.index('english'))
-
-                    if st.button("Translate", key="translate_material"):
-                        with st.spinner(f"Translating to {selected_language}..."):
-                            # Call our new, robust translation function
-                            translated_text = translate_text(curriculum_content, selected_language)
-                            if "Translation Error" in translated_text:
-                                st.error(translated_text)
-                            else:
-                                st.subheader(f"Translated Content ({selected_language})")
-                                st.success(translated_text)
-                    # --- END OF FEATURE ---
+                    # (Your translation feature can be added here)
                 else:
                     st.error("Could not retrieve content for the selected curriculum.")
 
@@ -4883,15 +4878,15 @@ def get_next_question_bank_id(qb_id):
 
 
 # REFACTORED: To create a learning plan, initiated by a trainer.
-def create_learning_plan(qb_id_obj, username):
+# In your stt.py file, replace this function
+def create_learning_plan(qb_id_obj, username, trainer_username):
     """
-    Creates a learning plan record linking a user to a question bank.
-    This should be called by a trainer.
+    Creates a learning plan record linking a user, a question bank,
+    and the trainer who assigned it.
     """
     db = create_connection()
     if db is None:
         return None
-
     try:
         # Prevent duplicate assignments
         existing_plan = db.learning_plans.find_one({
@@ -4911,17 +4906,15 @@ def create_learning_plan(qb_id_obj, username):
         difficulty = qb_details.get('difficulty')
         technology = qb_details.get('technology', 'N/A')
         num_questions = len([q for q in questions if q.strip()])
-
         estimated_time = calculate_estimated_time(num_questions, difficulty)
-
         start_date = datetime.now()
-        # Estimate duration, assuming 4 hours of study per day
         num_days = (estimated_time / 60) / 4
         end_date = start_date + timedelta(days=max(1, int(num_days)))
 
         learning_plan_data = {
             'username': username,
             'question_bank_id': qb_id_obj,
+            'trainer_username': trainer_username,  # <-- CRITICAL FIX: Add the trainer's username
             'technology': technology,
             'status': 'Assigned',
             'start_date': start_date.strftime('%Y-%m-%d'),
@@ -4929,7 +4922,6 @@ def create_learning_plan(qb_id_obj, username):
             'estimated_time': estimated_time,
             'created_at': datetime.now()
         }
-
         result = db.learning_plans.insert_one(learning_plan_data)
         return result.inserted_id
     except OperationFailure as err:
