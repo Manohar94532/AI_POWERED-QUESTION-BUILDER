@@ -4101,22 +4101,31 @@ def employee_dashboard(username):
 
             question_type = st.session_state.qb_details.get('question_type', '').lower()
             
-            # --- ROBUST LOGIC TO DISPLAY CORRECT WIDGET ---
+            # --- FIXED LOGIC TO DISPLAY CORRECT WIDGET ---
             if question_type == "multiple-choice":
-                options_from_qb = st.session_state.qb_details.get('options', '').split('|||')
+                # Split all options by question separator (|||)
+                all_options_text = st.session_state.qb_details.get('options', '')
+                options_per_question = [opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
                 
-                if q_idx < len(options_from_qb) and options_from_qb[q_idx]:
-                    options = [opt.strip() for opt in options_from_qb[q_idx].split('###') if opt.strip()]
-                    current_answer = st.session_state.user_answers[q_idx]
+                # Check if we have options for the current question
+                if q_idx < len(options_per_question) and options_per_question[q_idx]:
+                    # Split the options for current question by ### separator
+                    options = [opt.strip() for opt in options_per_question[q_idx].split('###') if opt.strip()]
                     
-                    try:
-                        current_index = options.index(current_answer) if current_answer in options else None
-                    except ValueError:
-                        current_index = None
+                    if options:  # Make sure we have actual options
+                        current_answer = st.session_state.user_answers[q_idx]
+                        
+                        try:
+                            current_index = options.index(current_answer) if current_answer in options else None
+                        except ValueError:
+                            current_index = None
 
-                    st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", index=current_index, on_change=record_answer)
+                        st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", index=current_index, on_change=record_answer)
+                    else:
+                        st.warning(f"No valid options found for question {q_idx + 1}.")
+                        st.session_state.user_answers[q_idx] = ""
                 else:
-                    st.warning("Options for this multiple-choice question are missing or malformed.")
+                    st.warning(f"Options for question {q_idx + 1} are missing or malformed.")
                     st.session_state.user_answers[q_idx] = ""
 
             elif question_type == "fill-in-the-blank":
