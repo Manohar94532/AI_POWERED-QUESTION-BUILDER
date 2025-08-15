@@ -2589,88 +2589,88 @@ def submit_feedback(username, question_bank_id, feedback_text, rating, feedback_
         return False
 
 
-def take_assessment():
-    st.subheader("Take Assessment")
-    question_banks = get_all_question_banks()
-    if not question_banks:
-        st.info("No question banks available yet.")
-    else:
-        selected_qb = st.selectbox(
-            "Select Question Bank",
-            options=[
-                (str(qb['_id']), f"{qb['technology']} - {qb['difficulty']}") for qb in question_banks],
-            format_func=lambda x: f"ID: {x[0]} - {x[1]}",
-            key="take_assessment_qb_select"
-        )
+# def take_assessment():
+#     st.subheader("Take Assessment")
+#     question_banks = get_all_question_banks()
+#     if not question_banks:
+#         st.info("No question banks available yet.")
+#     else:
+#         selected_qb = st.selectbox(
+#             "Select Question Bank",
+#             options=[
+#                 (str(qb['_id']), f"{qb['technology']} - {qb['difficulty']}") for qb in question_banks],
+#             format_func=lambda x: f"ID: {x[0]} - {x[1]}",
+#             key="take_assessment_qb_select"
+#         )
 
-        if selected_qb:
-            qb_id_str, _ = selected_qb
-            qb_id = ObjectId(qb_id_str)  # Convert to ObjectId
-            qb_details = next(
-                (qb for qb in question_banks if qb['_id'] == qb_id), None)
-            if qb_details:
-                questions = qb_details.get('questions', '').split('\n')
-                options = qb_details.get('options', '').split(
-                    '###') if qb_details.get('options') else []
-                correct_answers_str = get_correct_answers(
-                    qb_id)  # This returns a list of strings
+#         if selected_qb:
+#             qb_id_str, _ = selected_qb
+#             qb_id = ObjectId(qb_id_str)  # Convert to ObjectId
+#             qb_details = next(
+#                 (qb for qb in question_banks if qb['_id'] == qb_id), None)
+#             if qb_details:
+#                 questions = qb_details.get('questions', '').split('\n')
+#                 options = qb_details.get('options', '').split(
+#                     '###') if qb_details.get('options') else []
+#                 correct_answers_str = get_correct_answers(
+#                     qb_id)  # This returns a list of strings
 
-                question_type = qb_details.get('question_type')
+#                 question_type = qb_details.get('question_type')
 
-                score = 0
-                user_answers = []
-                for i, question in enumerate(questions):
-                    if not question.strip():  # Skip empty questions
-                        continue
+#                 score = 0
+#                 user_answers = []
+#                 for i, question in enumerate(questions):
+#                     if not question.strip():  # Skip empty questions
+#                         continue
 
-                    st.write(f"**Q{i+1}:** {question.strip()}")
+#                     st.write(f"**Q{i+1}:** {question.strip()}")
 
-                    if question_type == "multiple-choice" and options:
-                        # Assuming options are stored as 'Opt1###Opt2###Opt3###Opt4' per question
-                        # Need to parse options for the current question correctly
-                        # For now, let's assume options are structured to match questions
-                        if i < len(options):  # Ensure we have options for this question
-                            current_options = options[i].split('###')
-                            if current_options:
-                                answer = st.radio(
-                                    "Select an option", current_options, key=f"question_{i}")
-                                user_answers.append(answer)
-                            else:
-                                # No options, no answer
-                                user_answers.append("")
-                        else:
-                            # No options for this question
-                            user_answers.append("")
-                    elif question_type == "fill-in-the-blank":
-                        answer = st.text_input(
-                            "Enter your answer", key=f"question_{i}")
-                        user_answers.append(answer)
-                    elif question_type == "subjective":
-                        answer = st.text_area(
-                            "Enter your answer", key=f"question_{i}")
-                        user_answers.append(answer)
-                    else:
-                        # For cases where question_type is not set or options are missing
-                        user_answers.append("")
+#                     if question_type == "multiple-choice" and options:
+#                         # Assuming options are stored as 'Opt1###Opt2###Opt3###Opt4' per question
+#                         # Need to parse options for the current question correctly
+#                         # For now, let's assume options are structured to match questions
+#                         if i < len(options):  # Ensure we have options for this question
+#                             current_options = options[i].split('###')
+#                             if current_options:
+#                                 answer = st.radio(
+#                                     "Select an option", current_options, key=f"question_{i}")
+#                                 user_answers.append(answer)
+#                             else:
+#                                 # No options, no answer
+#                                 user_answers.append("")
+#                         else:
+#                             # No options for this question
+#                             user_answers.append("")
+#                     elif question_type == "fill-in-the-blank":
+#                         answer = st.text_input(
+#                             "Enter your answer", key=f"question_{i}")
+#                         user_answers.append(answer)
+#                     elif question_type == "subjective":
+#                         answer = st.text_area(
+#                             "Enter your answer", key=f"question_{i}")
+#                         user_answers.append(answer)
+#                     else:
+#                         # For cases where question_type is not set or options are missing
+#                         user_answers.append("")
 
-                if st.button("Submit"):
-                    total_questions_answered = 0
-                    correct_answers_count = 0
-                    for i, user_answer in enumerate(user_answers):
-                        if i < len(correct_answers_str) and user_answer.strip().lower() == correct_answers_str[i].strip().lower():
-                            st.success(f"Q{i+1}: Correct!")
-                            correct_answers_count += 1
-                        elif i < len(correct_answers_str):
-                            st.error(
-                                f"Q{i+1}: Incorrect. Correct answer: {correct_answers_str[i].strip()}")
-                        total_questions_answered += 1
+#                 if st.button("Submit"):
+#                     total_questions_answered = 0
+#                     correct_answers_count = 0
+#                     for i, user_answer in enumerate(user_answers):
+#                         if i < len(correct_answers_str) and user_answer.strip().lower() == correct_answers_str[i].strip().lower():
+#                             st.success(f"Q{i+1}: Correct!")
+#                             correct_answers_count += 1
+#                         elif i < len(correct_answers_str):
+#                             st.error(
+#                                 f"Q{i+1}: Incorrect. Correct answer: {correct_answers_str[i].strip()}")
+#                         total_questions_answered += 1
 
-                    st.write(
-                        f"Your score is {correct_answers_count} out of {total_questions_answered}")
+#                     st.write(
+#                         f"Your score is {correct_answers_count} out of {total_questions_answered}")
 
-                    # Save the assessment result
-                    save_assessment_result(
-                        st.session_state.user['username'], qb_id, correct_answers_count)
+#                     # Save the assessment result
+#                     save_assessment_result(
+#                         st.session_state.user['username'], qb_id, correct_answers_count)
 
 
 # def get_available_question_banks(username):
@@ -3992,9 +3992,11 @@ def employee_dashboard(username):
     # --- Interactive Assessment Tab ---
     # In employee_dashboard(), replace the entire "Take Assessment" block with this:
 
+    # In employee_dashboard(), replace the entire "Take Assessment" block with this:
+
     elif selected_tab == "Take Assessment":
         st.subheader("Take Assessment ✍️")
-        
+
         # --- View 1: Assessment Selection ---
         if 'assessment_started' not in st.session_state or not st.session_state.assessment_started:
             st.session_state.assessment_started = False
@@ -4069,19 +4071,49 @@ def employee_dashboard(username):
             st.write(st.session_state.questions[q_idx])
 
             def record_answer():
-                st.session_state.user_answers[q_idx] = st.session_state[f"q_widget_{q_idx}"]
+                widget_key = f"q_widget_{q_idx}"
+                if widget_key in st.session_state:
+                    st.session_state.user_answers[q_idx] = st.session_state[widget_key]
 
             question_type = st.session_state.qb_details.get('question_type', '').lower()
+            
+            # --- ROBUST LOGIC TO DISPLAY CORRECT WIDGET ---
             if question_type == "multiple-choice":
-                options = st.session_state.qb_details.get('options', '').split('|||')[q_idx].split('###')
-                st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", 
-                        index=None if st.session_state.user_answers[q_idx] is None else options.index(st.session_state.user_answers[q_idx]),
-                        on_change=record_answer)
+                options_from_qb = st.session_state.qb_details.get('options', '').split('|||')
+                
+                # **FIX IS HERE**: Check if options exist for this specific question index
+                if q_idx < len(options_from_qb) and options_from_qb[q_idx]:
+                    options = options_from_qb[q_idx].split('###')
+                    current_answer = st.session_state.user_answers[q_idx]
+                    
+                    # Check if the saved answer is valid before setting the index
+                    try:
+                        current_index = options.index(current_answer) if current_answer in options else None
+                    except ValueError:
+                        current_index = None
+
+                    st.radio(
+                        "Select your answer:",
+                        options,
+                        key=f"q_widget_{q_idx}",
+                        index=current_index,
+                        on_change=record_answer
+                    )
+                else:
+                    st.warning("Options for this multiple-choice question are missing.")
+                    # Ensure the answer is recorded as empty to avoid errors
+                    st.session_state.user_answers[q_idx] = ""
+
             elif question_type == "fill-in-the-blank":
                 st.text_input("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
-            else: # Subjective
+            
+            elif question_type == "subjective":
                 st.text_area("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
+            
+            else:
+                st.error(f"Unknown question type: '{question_type}'. Please contact your trainer.")
 
+            # --- Bottom Navigation ---
             st.write("---")
             nav_cols = st.columns([1, 1, 2, 1, 1])
             if nav_cols[0].button("Previous", use_container_width=True, disabled=(q_idx == 0)):
@@ -4094,7 +4126,7 @@ def employee_dashboard(username):
                 st.session_state.assessment_finished = True
                 st.rerun()
 
-        # --- View 3: Results Page (SINGLE CORRECT VERSION) ---
+        # --- View 3: Results Page ---
         elif st.session_state.assessment_finished:
             st.subheader("Assessment Results")
             score = 0
@@ -4274,96 +4306,57 @@ def employee_dashboard(username):
         else:
             st.info("You haven't completed any assessments yet.")
 
+    # In your employee_dashboard function:
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
-        curricula = get_all_curricula()
-        if curricula:
-            # Add a "None" placeholder as the first option
-            curriculum_options = ["None"] + [c['technology']
-                                             for c in curricula]
-
-            selected_curriculum = st.selectbox(
-                "Select Curriculum to Prepare from",
-                options=curriculum_options,
-                key="prepare_curriculum_select"
-            )
-
-            # Only display content if a valid curriculum is selected
-            if selected_curriculum and selected_curriculum != "None":
-                curriculum_content = get_curriculum_text(selected_curriculum)
-                if curriculum_content:
-                    # curriculum_content is already a string from MongoDB
-                    decoded_content = curriculum_content
-
-                    # Clean up special characters
-                    decoded_content = decoded_content.replace(
-                        '\xef\x82\xb7', '•').replace('\xef\x80\xa0', '')
-
-                    st.write("Curriculum Content:")
-                    st.write(decoded_content)
-
-                    st.subheader("Select Language for Translation")
-                    languages = ["English", "Spanish", "French", "German", "Chinese", "Japanese",
-                                 "Korean", "Kannada", "Malayalam", "Hindi", "Tamil", "Telugu", "Bengali"]
-                    selected_language = st.selectbox(
-                        "Choose a language", languages)
-
-                    if st.button("Translate Curriculum"):
-                        if decoded_content:
-                            try:
-                                # Using deep-translator for more reliable translation
-                                # Removed the redundant import here
-                                translator_instance = GoogleTranslator(
-                                    source='auto', target=selected_language.lower())
-
-                                # For long texts, we might need to split and translate in chunks
-                                max_chunk = 5000  # Google Translate has a limit
-
-                                if len(decoded_content) > max_chunk:
-                                    # Split into chunks and translate separately
-                                    chunks = [decoded_content[i:i+max_chunk]
-                                              for i in range(0, len(decoded_content), max_chunk)]
-                                    translated_chunks = [
-                                        translator_instance.translate(chunk) for chunk in chunks]
-                                    translated_content = ''.join(
-                                        translated_chunks)
-                                else:
-                                    translated_content = translator_instance.translate(
-                                        decoded_content)
-
-                                st.write("Translated Curriculum Content:")
-                                st.write(translated_content)
-                            except Exception as e:
-                                st.error(f"Translation failed: {e}")
-                        else:
-                            st.error("No content available to translate.")
-
-                    # Rest of your document download code...
-                    if "curriculum_downloaded" not in st.session_state:
-                        st.session_state.curriculum_downloaded = False
-
-                    if not st.session_state.curriculum_downloaded:
-                        if st.button("Download Curriculum"):
-                            import docx
-                            import io
-                            doc = docx.Document()
-                            doc.add_paragraph(decoded_content)
-                            buffer = io.BytesIO()
-                            doc.save(buffer)
-                            buffer.seek(0)
-                            st.download_button(
-                                label="Download Curriculum",
-                                data=buffer.getvalue(),
-                                file_name=f"curriculum_{selected_curriculum}.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            )
-                            st.session_state.curriculum_downloaded = True
-                    else:
-                        st.info("Curriculum has already been downloaded.")
-                else:
-                    st.error("Failed to retrieve curriculum content")
+        learning_plans = get_user_learning_plans(username)
+        
+        if not learning_plans:
+            st.info("No materials available because you have no learning plans assigned.")
         else:
-            st.info("No curricula available yet.")
+            user_technologies = sorted(list(set([p['technology'] for p in learning_plans])))
+            selected_tech = st.selectbox("Select a Curriculum from Your Learning Plan", options=user_technologies)
+
+            if selected_tech:
+                curriculum_content = get_curriculum_text(selected_tech)
+                if curriculum_content:
+                    st.markdown("---")
+                    st.subheader("Curriculum Content")
+                    st.info(curriculum_content)
+
+                    # --- TRANSLATION FEATURE WITH CHUNKING ---
+                    st.markdown("---")
+                    st.subheader("Translate Material")
+                    languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish", "French", "German", "Chinese", "Japanese", "Korean"]
+                    selected_language = st.selectbox("Translate to:", languages)
+
+                    if st.button("Translate", key="translate_material"):
+                        with st.spinner(f"Translating to {selected_language}..."):
+                            try:
+                                # Define the maximum length for each chunk
+                                max_chunk_size = 4500  # Well below the 5000 limit
+                                
+                                # Split the text into chunks
+                                text_chunks = [curriculum_content[i:i + max_chunk_size] for i in range(0, len(curriculum_content), max_chunk_size)]
+                                
+                                translated_chunks = []
+                                translator = GoogleTranslator(source='auto', target=selected_language.lower())
+
+                                # Translate each chunk and append to the list
+                                for chunk in text_chunks:
+                                    translated_chunks.append(translator.translate(chunk))
+                                
+                                # Join the translated chunks back together
+                                full_translated_text = " ".join(translated_chunks)
+
+                                st.subheader(f"Translated Content ({selected_language})")
+                                st.success(full_translated_text)
+                                
+                            except Exception as e:
+                                st.error(f"Translation failed. Error: {e}")
+                    # --- END OF FEATURE ---
+                else:
+                    st.error("Could not retrieve content for the selected curriculum.")
 
     elif selected_tab == "Discussion Forum":
         discussion_forum()
