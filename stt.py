@@ -3960,6 +3960,8 @@ def employee_dashboard(username):
                         )
 
     # --- Prepare from Material Tab ---
+    # In employee_dashboard(), update the "Prepare from Material" block
+
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
         learning_plans = get_user_learning_plans(username)
@@ -3974,18 +3976,25 @@ def employee_dashboard(username):
                     st.markdown("---")
                     st.subheader("Curriculum Content")
                     st.info(curriculum_content)
+
+                    # --- CORRECTED TRANSLATION FEATURE ---
                     st.markdown("---")
                     st.subheader("Translate Material")
-                    languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish", "French", "German", "Chinese", "Japanese", "Korean"]
-                    selected_language = st.selectbox("Translate to:", languages)
+                    
+                    # Get a list of languages supported by the library
+                    language_options = list(googletrans.LANGUAGES.values())
+                    selected_language = st.selectbox("Translate to:", language_options, index=language_options.index('english'))
+
                     if st.button("Translate", key="translate_material"):
                         with st.spinner(f"Translating to {selected_language}..."):
-                            try:
-                                translated_text = GoogleTranslator(source='auto', target=selected_language.lower()).translate(curriculum_content)
+                            # Call our new, robust translation function
+                            translated_text = translate_text(curriculum_content, selected_language)
+                            if "Translation Error" in translated_text:
+                                st.error(translated_text)
+                            else:
                                 st.subheader(f"Translated Content ({selected_language})")
                                 st.success(translated_text)
-                            except Exception as e:
-                                st.error(f"Translation failed. Error: {e}")
+                    # --- END OF FEATURE ---
                 else:
                     st.error("Could not retrieve content for the selected curriculum.")
 
@@ -3993,6 +4002,8 @@ def employee_dashboard(username):
     # In employee_dashboard(), replace the entire "Take Assessment" block with this:
 
     # In employee_dashboard(), replace the entire "Take Assessment" block with this:
+
+    # In your employee_dashboard function, replace the entire "Take Assessment" block with this:
 
     elif selected_tab == "Take Assessment":
         st.subheader("Take Assessment ✍️")
@@ -4022,7 +4033,7 @@ def employee_dashboard(username):
                     qb_details = next((qb for qb in all_qbs if qb['_id'] == qb_id), None)
                     if qb_details:
                         questions = [q for q in qb_details.get('questions', '').split('\n') if q.strip()]
-                        time_limit_minutes = len(questions) * 1.5
+                        time_limit_minutes = len(questions) * 1.5  # 1.5 minutes per question
                         st.info(f"""
                         **You have selected:** {qb_details['technology']} ({qb_details['difficulty']})
                         - **Number of Questions:** {len(questions)}
@@ -4048,11 +4059,13 @@ def employee_dashboard(username):
                 st.session_state.assessment_finished = True
                 st.rerun()
 
+            # Persistent Top Bar
             top_cols = st.columns([3, 1])
             top_cols[0].subheader(f"Assessment: {st.session_state.qb_details['technology']}")
             top_cols[1].markdown(f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
             st.progress(time_left.total_seconds() / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
 
+            # Sidebar Navigation
             with st.sidebar:
                 st.write("---")
                 st.subheader("Question Palette")
@@ -4066,6 +4079,7 @@ def employee_dashboard(username):
                         st.session_state.current_question_index = i
                         st.rerun()
 
+            # Main Question Area
             q_idx = st.session_state.current_question_index
             st.markdown(f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
             st.write(st.session_state.questions[q_idx])
@@ -4077,33 +4091,22 @@ def employee_dashboard(username):
 
             question_type = st.session_state.qb_details.get('question_type', '').lower()
             
-            # --- ROBUST LOGIC TO DISPLAY CORRECT WIDGET ---
+            # Logic to display the correct input widget based on question type
             if question_type == "multiple-choice":
                 options_from_qb = st.session_state.qb_details.get('options', '').split('|||')
-                
-                # **FIX IS HERE**: Check if options exist for this specific question index
                 if q_idx < len(options_from_qb) and options_from_qb[q_idx]:
                     options = options_from_qb[q_idx].split('###')
                     current_answer = st.session_state.user_answers[q_idx]
-                    
-                    # Check if the saved answer is valid before setting the index
                     try:
                         current_index = options.index(current_answer) if current_answer in options else None
                     except ValueError:
-                        current_index = None
-
-                    st.radio(
-                        "Select your answer:",
-                        options,
-                        key=f"q_widget_{q_idx}",
-                        index=current_index,
-                        on_change=record_answer
-                    )
+                        current_index = None # Handles case where saved answer is somehow not in the options list
+                    
+                    st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", index=current_index, on_change=record_answer)
                 else:
                     st.warning("Options for this multiple-choice question are missing.")
-                    # Ensure the answer is recorded as empty to avoid errors
-                    st.session_state.user_answers[q_idx] = ""
-
+                    st.session_state.user_answers[q_idx] = "" # Mark as seen but unanswered
+            
             elif question_type == "fill-in-the-blank":
                 st.text_input("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
             
@@ -4113,7 +4116,7 @@ def employee_dashboard(username):
             else:
                 st.error(f"Unknown question type: '{question_type}'. Please contact your trainer.")
 
-            # --- Bottom Navigation ---
+            # Bottom Navigation
             st.write("---")
             nav_cols = st.columns([1, 1, 2, 1, 1])
             if nav_cols[0].button("Previous", use_container_width=True, disabled=(q_idx == 0)):
@@ -4135,6 +4138,7 @@ def employee_dashboard(username):
                     score += 1
             total_questions = len(st.session_state.questions)
             percentage = (score / total_questions) * 100 if total_questions > 0 else 0
+            
             st.metric("Final Score", f"{score} / {total_questions}", f"{percentage:.2f}%")
             save_assessment_result(username, st.session_state.qb_details['_id'], score)
             
@@ -4150,9 +4154,11 @@ def employee_dashboard(username):
                         st.info(f"Correct answer: {correct_ans}")
                     st.write("---")
             if st.button("Take Another Assessment"):
+                # Clean up all session state variables related to the assessment
                 keys_to_delete = [k for k in st.session_state.keys() if k.startswith('assessment_') or k.startswith('q_widget_')]
                 for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
-                    if key in st.session_state: del st.session_state[key]
+                    if key in st.session_state:
+                        del st.session_state[key]
                 st.rerun()
 
         
@@ -4496,6 +4502,29 @@ def employee_dashboard(username):
             st.sidebar.write(notification['message'])
     else:
         st.sidebar.write("No notifications available.")
+
+
+
+# Add this function to your file
+@st.cache_data
+def translate_text(text, target_language):
+    """Translates text to a target language, with caching and error handling."""
+    if not text:
+        return ""
+    try:
+        # It's good practice to re-initialize the translator
+        translator = googletrans.Translator()
+        # The library uses language codes (e.g., 'hi' for Hindi)
+        lang_code = googletrans.LANGCODES.get(target_language.lower(), target_language.lower())
+        
+        # Chunking for long texts
+        max_chunk_size = 4500
+        text_chunks = [text[i:i + max_chunk_size] for i in range(0, len(text), max_chunk_size)]
+        translated_chunks = [translator.translate(chunk, dest=lang_code).text for chunk in text_chunks]
+        
+        return " ".join(translated_chunks)
+    except Exception as e:
+        return f"Translation Error: {e}"
 
 # Main function for the discussion forum
 
