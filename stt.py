@@ -1401,13 +1401,13 @@ def get_all_question_banks():
 # Employee Functions
 
 
-def get_learning_plan(username):
-    db = create_connection()
-    if db is None:
-        return None
+# def get_learning_plan(username):
+#     db = create_connection()
+#     if db is None:
+#         return None
 
-    learning_plan = db.learning_plans.find_one({"username": username})
-    return learning_plan
+#     learning_plan = db.learning_plans.find_one({"username": username})
+#     return learning_plan
 
 
 def submit_feedback(username, question_bank_id, feedback_text, rating, feedback_type):
@@ -1445,88 +1445,88 @@ def submit_feedback(username, question_bank_id, feedback_text, rating, feedback_
         return False
 
 
-def take_assessment():
-    st.subheader("Take Assessment")
-    question_banks = get_all_question_banks()
-    if not question_banks:
-        st.info("No question banks available yet.")
-    else:
-        selected_qb = st.selectbox(
-            "Select Question Bank",
-            options=[
-                (str(qb['_id']), f"{qb['technology']} - {qb['difficulty']}") for qb in question_banks],
-            format_func=lambda x: f"ID: {x[0]} - {x[1]}",
-            key="take_assessment_qb_select"
-        )
+# def take_assessment():
+#     st.subheader("Take Assessment")
+#     question_banks = get_all_question_banks()
+#     if not question_banks:
+#         st.info("No question banks available yet.")
+#     else:
+#         selected_qb = st.selectbox(
+#             "Select Question Bank",
+#             options=[
+#                 (str(qb['_id']), f"{qb['technology']} - {qb['difficulty']}") for qb in question_banks],
+#             format_func=lambda x: f"ID: {x[0]} - {x[1]}",
+#             key="take_assessment_qb_select"
+#         )
 
-        if selected_qb:
-            qb_id_str, _ = selected_qb
-            qb_id = ObjectId(qb_id_str)  # Convert to ObjectId
-            qb_details = next(
-                (qb for qb in question_banks if qb['_id'] == qb_id), None)
-            if qb_details:
-                questions = qb_details.get('questions', '').split('\n')
-                options = qb_details.get('options', '').split(
-                    '###') if qb_details.get('options') else []
-                correct_answers_str = get_correct_answers(
-                    qb_id)  # This returns a list of strings
+#         if selected_qb:
+#             qb_id_str, _ = selected_qb
+#             qb_id = ObjectId(qb_id_str)  # Convert to ObjectId
+#             qb_details = next(
+#                 (qb for qb in question_banks if qb['_id'] == qb_id), None)
+#             if qb_details:
+#                 questions = qb_details.get('questions', '').split('\n')
+#                 options = qb_details.get('options', '').split(
+#                     '###') if qb_details.get('options') else []
+#                 correct_answers_str = get_correct_answers(
+#                     qb_id)  # This returns a list of strings
 
-                question_type = qb_details.get('question_type')
+#                 question_type = qb_details.get('question_type')
 
-                score = 0
-                user_answers = []
-                for i, question in enumerate(questions):
-                    if not question.strip():  # Skip empty questions
-                        continue
+#                 score = 0
+#                 user_answers = []
+#                 for i, question in enumerate(questions):
+#                     if not question.strip():  # Skip empty questions
+#                         continue
 
-                    st.write(f"**Q{i+1}:** {question.strip()}")
+#                     st.write(f"**Q{i+1}:** {question.strip()}")
 
-                    if question_type == "multiple-choice" and options:
-                        # Assuming options are stored as 'Opt1###Opt2###Opt3###Opt4' per question
-                        # Need to parse options for the current question correctly
-                        # For now, let's assume options are structured to match questions
-                        if i < len(options):  # Ensure we have options for this question
-                            current_options = options[i].split('###')
-                            if current_options:
-                                answer = st.radio(
-                                    "Select an option", current_options, key=f"question_{i}")
-                                user_answers.append(answer)
-                            else:
-                                # No options, no answer
-                                user_answers.append("")
-                        else:
-                            # No options for this question
-                            user_answers.append("")
-                    elif question_type == "fill-in-the-blank":
-                        answer = st.text_input(
-                            "Enter your answer", key=f"question_{i}")
-                        user_answers.append(answer)
-                    elif question_type == "subjective":
-                        answer = st.text_area(
-                            "Enter your answer", key=f"question_{i}")
-                        user_answers.append(answer)
-                    else:
-                        # For cases where question_type is not set or options are missing
-                        user_answers.append("")
+#                     if question_type == "multiple-choice" and options:
+#                         # Assuming options are stored as 'Opt1###Opt2###Opt3###Opt4' per question
+#                         # Need to parse options for the current question correctly
+#                         # For now, let's assume options are structured to match questions
+#                         if i < len(options):  # Ensure we have options for this question
+#                             current_options = options[i].split('###')
+#                             if current_options:
+#                                 answer = st.radio(
+#                                     "Select an option", current_options, key=f"question_{i}")
+#                                 user_answers.append(answer)
+#                             else:
+#                                 # No options, no answer
+#                                 user_answers.append("")
+#                         else:
+#                             # No options for this question
+#                             user_answers.append("")
+#                     elif question_type == "fill-in-the-blank":
+#                         answer = st.text_input(
+#                             "Enter your answer", key=f"question_{i}")
+#                         user_answers.append(answer)
+#                     elif question_type == "subjective":
+#                         answer = st.text_area(
+#                             "Enter your answer", key=f"question_{i}")
+#                         user_answers.append(answer)
+#                     else:
+#                         # For cases where question_type is not set or options are missing
+#                         user_answers.append("")
 
-                if st.button("Submit"):
-                    total_questions_answered = 0
-                    correct_answers_count = 0
-                    for i, user_answer in enumerate(user_answers):
-                        if i < len(correct_answers_str) and user_answer.strip().lower() == correct_answers_str[i].strip().lower():
-                            st.success(f"Q{i+1}: Correct!")
-                            correct_answers_count += 1
-                        elif i < len(correct_answers_str):
-                            st.error(
-                                f"Q{i+1}: Incorrect. Correct answer: {correct_answers_str[i].strip()}")
-                        total_questions_answered += 1
+#                 if st.button("Submit"):
+#                     total_questions_answered = 0
+#                     correct_answers_count = 0
+#                     for i, user_answer in enumerate(user_answers):
+#                         if i < len(correct_answers_str) and user_answer.strip().lower() == correct_answers_str[i].strip().lower():
+#                             st.success(f"Q{i+1}: Correct!")
+#                             correct_answers_count += 1
+#                         elif i < len(correct_answers_str):
+#                             st.error(
+#                                 f"Q{i+1}: Incorrect. Correct answer: {correct_answers_str[i].strip()}")
+#                         total_questions_answered += 1
 
-                    st.write(
-                        f"Your score is {correct_answers_count} out of {total_questions_answered}")
+#                     st.write(
+#                         f"Your score is {correct_answers_count} out of {total_questions_answered}")
 
-                    # Save the assessment result
-                    save_assessment_result(
-                        st.session_state.user['username'], qb_id, correct_answers_count)
+#                     # Save the assessment result
+#                     save_assessment_result(
+#                         st.session_state.user['username'], qb_id, correct_answers_count)
 
 
 def get_available_question_banks(username):
