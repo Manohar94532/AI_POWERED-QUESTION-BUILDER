@@ -2490,47 +2490,6 @@ def get_curriculum_text(technology):
         return None
 
 
-def save_question_bank(technology, topics, questions, difficulty, correct_answers, question_type, options=None):  # ✅ Correct one
-
-    db = create_connection()
-    if db is None:
-        return False
-
-    try:
-        # Prepare document for question_banks collection
-        qb_doc = {
-            "technology": technology,
-            "topics": topics,  # topics is already a string
-            "questions": questions,  # questions is already a single string
-            "difficulty": difficulty,
-            "question_type": question_type,
-            "options": options,  # options is already a single string
-            "created_at": datetime.now()
-        }
-
-        # Insert into question_banks collection
-        result_qb = db.question_banks.insert_one(qb_doc)
-        question_bank_id = result_qb.inserted_id  # MongoDB's _id
-
-        # Prepare document for question_answers collection
-        answer_doc = {
-            "question_bank_id": question_bank_id,  # Link to the question bank
-            "answer_data": correct_answers  # correct_answers is already a single string
-        }
-
-        # Insert into question_answers collection
-        db.question_answers.insert_one(answer_doc)
-
-        # Return as string for consistency with app logic
-        return str(question_bank_id)
-
-    except OperationFailure as err:
-        st.error(f"Database error: {err}")
-        return False
-    except Exception as e:
-        st.error(f"General error in save_question_bank: {e}")
-        return False
-
 
 def get_topics_for_technology(technology):
     db = create_connection()
