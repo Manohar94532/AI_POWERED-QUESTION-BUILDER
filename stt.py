@@ -3972,41 +3972,115 @@ def employee_dashboard(username):
 
     # In employee_dashboard(), replace the "Prepare from Material" block with this:
 
+    # --- Prepare from Material Tab (FIXED) ---
+
     elif selected_tab == "Prepare from Material":
+
         st.subheader("Prepare from Material 📚")
+
         learning_plans = get_user_learning_plans(username)
+
         
+
         if not learning_plans:
+
             st.info("No materials are available because no learning plans have been assigned to you.")
+
         else:
-            # Create a dictionary to easily look up trainer by technology
+
+            # Create a dictionary to easily look up trainer and other details by technology
+
             tech_to_plan_map = {plan['technology']: plan for plan in learning_plans}
+
             user_technologies = sorted(list(tech_to_plan_map.keys()))
+
             
+
             selected_tech = st.selectbox(
+
                 "Select a Curriculum from Your Learning Plan",
+
                 options=user_technologies
+
             )
 
-            if selected_tech:
-                # Get the specific plan details for the selected technology
-                plan_details = tech_to_plan_map[selected_tech]
-                trainer = plan_details.get('trainer_username')
-                
-                if trainer:
-                    # Pass both technology and trainer to get the correct content
-                    curriculum_content = get_curriculum_text(selected_tech, trainer)
-                    
-                    if curriculum_content:
-                        st.markdown("---")
-                        st.subheader("Curriculum Content")
-                        st.info(curriculum_content)
-                        # (Your translation feature will now work correctly with this content)
-                    else:
-                        st.error("Could not retrieve content for the selected curriculum. The assigned trainer may not have uploaded the material yet.")
-                else:
-                    st.error("Could not identify the trainer for this learning plan.")
 
+
+            if selected_tech:
+
+                # Get the specific plan details for the selected technology
+
+                plan_details = tech_to_plan_map[selected_tech]
+
+                trainer = plan_details.get('trainer_username')
+
+                
+
+                if trainer:
+
+                    # **THE FIX**: Pass both technology AND trainer to get the correct content
+
+                    curriculum_content = get_curriculum_text(selected_tech, trainer)
+
+                    
+
+                    if curriculum_content:
+
+                        st.markdown("---")
+
+                        st.subheader("Curriculum Content")
+
+                        st.info(curriculum_content)
+
+
+
+                        # --- TRANSLATION FEATURE ADDED ---
+
+                        st.markdown("---")
+
+                        st.subheader("Translate Material")
+
+                        languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish", "French", "German", "Chinese", "Japanese", "Korean"]
+
+                        selected_language = st.selectbox("Translate to:", languages)
+
+
+
+                        if st.button("Translate", key="translate_material"):
+
+                            with st.spinner(f"Translating to {selected_language}..."):
+
+                                try:
+
+                                    max_chunk_size = 4500
+
+                                    text_chunks = [curriculum_content[i:i + max_chunk_size] for i in range(0, len(curriculum_content), max_chunk_size)]
+
+                                    translated_chunks = []
+
+                                    for chunk in text_chunks:
+
+                                        translated_chunks.append(GoogleTranslator(source='auto', target=selected_language.lower()).translate(chunk))
+
+                                    full_translated_text = " ".join(translated_chunks)
+
+                                    st.subheader(f"Translated Content ({selected_language})")
+
+                                    st.success(full_translated_text)
+
+                                except Exception as e:
+
+                                    st.error(f"Translation failed. Error: {e}")
+
+                        # --- END OF FEATURE ---
+
+                    else:
+
+                        st.error("Could not retrieve content for the selected curriculum. The assigned trainer may not have uploaded the material yet.")
+
+                else:
+
+                    st.error("Could not identify the trainer for this learning plan.")
     # --- Interactive Assessment Tab ---
     # In employee_dashboard(), replace the entire "Take Assessment" block with this:
 
