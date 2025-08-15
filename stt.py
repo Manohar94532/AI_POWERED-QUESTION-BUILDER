@@ -4005,13 +4005,19 @@ def employee_dashboard(username):
 
     # In your employee_dashboard function, replace the entire "Take Assessment" block with this:
 
+    # In your employee_dashboard function, replace the entire "Take Assessment" block with this:
+
     elif selected_tab == "Take Assessment":
         st.subheader("Take Assessment ✍️")
 
         # --- View 1: Assessment Selection ---
         if 'assessment_started' not in st.session_state or not st.session_state.assessment_started:
+            # Initialize or reset state when starting a new assessment selection
             st.session_state.assessment_started = False
             st.session_state.assessment_finished = False
+            for key in ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
+                if key in st.session_state:
+                    del st.session_state[key]
 
             learning_plans = get_user_learning_plans(username)
             available_assessments = [p for p in learning_plans if p.get('status') != 'Completed']
@@ -4027,18 +4033,22 @@ def employee_dashboard(username):
                     index=None,
                     placeholder="Choose an assessment..."
                 )
+
                 if selected_qb_id_str:
                     qb_id = ObjectId(selected_qb_id_str)
                     all_qbs = get_all_question_banks()
                     qb_details = next((qb for qb in all_qbs if qb['_id'] == qb_id), None)
+
                     if qb_details:
                         questions = [q for q in qb_details.get('questions', '').split('\n') if q.strip()]
                         time_limit_minutes = len(questions) * 1.5  # 1.5 minutes per question
+
                         st.info(f"""
                         **You have selected:** {qb_details['technology']} ({qb_details['difficulty']})
                         - **Number of Questions:** {len(questions)}
                         - **Time Limit:** {int(time_limit_minutes)} minutes
                         """)
+
                         if st.button("Start Assessment", type="primary"):
                             st.session_state.assessment_started = True
                             st.session_state.assessment_finished = False
@@ -4091,22 +4101,24 @@ def employee_dashboard(username):
 
             question_type = st.session_state.qb_details.get('question_type', '').lower()
             
-            # Logic to display the correct input widget based on question type
+            # --- ROBUST LOGIC TO DISPLAY CORRECT WIDGET ---
             if question_type == "multiple-choice":
                 options_from_qb = st.session_state.qb_details.get('options', '').split('|||')
+                
                 if q_idx < len(options_from_qb) and options_from_qb[q_idx]:
-                    options = options_from_qb[q_idx].split('###')
+                    options = [opt.strip() for opt in options_from_qb[q_idx].split('###') if opt.strip()]
                     current_answer = st.session_state.user_answers[q_idx]
+                    
                     try:
                         current_index = options.index(current_answer) if current_answer in options else None
                     except ValueError:
-                        current_index = None # Handles case where saved answer is somehow not in the options list
-                    
+                        current_index = None
+
                     st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", index=current_index, on_change=record_answer)
                 else:
-                    st.warning("Options for this multiple-choice question are missing.")
-                    st.session_state.user_answers[q_idx] = "" # Mark as seen but unanswered
-            
+                    st.warning("Options for this multiple-choice question are missing or malformed.")
+                    st.session_state.user_answers[q_idx] = ""
+
             elif question_type == "fill-in-the-blank":
                 st.text_input("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
             
@@ -4116,7 +4128,7 @@ def employee_dashboard(username):
             else:
                 st.error(f"Unknown question type: '{question_type}'. Please contact your trainer.")
 
-            # Bottom Navigation
+            # --- Bottom Navigation ---
             st.write("---")
             nav_cols = st.columns([1, 1, 2, 1, 1])
             if nav_cols[0].button("Previous", use_container_width=True, disabled=(q_idx == 0)):
