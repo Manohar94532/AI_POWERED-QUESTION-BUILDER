@@ -2477,23 +2477,23 @@ def upload_curriculum(technology, topics, content, trainer_username):
         return False
 
 
-def get_curriculum_text(technology):
-    db = create_connection()
-    if db is None:
-        return None
+# def get_curriculum_text(technology):
+#     db = create_connection()
+#     if db is None:
+#         return None
 
-    try:
-        result = db.curriculum.find_one(
-            {"technology": technology}, {"topics": 1, "_id": 0})
-        if result:
-            return result.get('topics')
-        else:
-            st.error(
-                f"No curriculum content found for technology: {technology}")
-            return None
-    except OperationFailure as err:
-        st.error(f"Database error: {err}")
-        return None
+#     try:
+#         result = db.curriculum.find_one(
+#             {"technology": technology}, {"topics": 1, "_id": 0})
+#         if result:
+#             return result.get('topics')
+#         else:
+#             st.error(
+#                 f"No curriculum content found for technology: {technology}")
+#             return None
+#     except OperationFailure as err:
+#         st.error(f"Database error: {err}")
+#         return None
 
 
 
