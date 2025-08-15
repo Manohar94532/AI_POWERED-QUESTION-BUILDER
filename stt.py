@@ -1529,42 +1529,42 @@ def submit_feedback(username, question_bank_id, feedback_text, rating, feedback_
 #                         st.session_state.user['username'], qb_id, correct_answers_count)
 
 
-def get_available_question_banks(username):
-    db = create_connection()
-    if db is None:
-        return []
+# def get_available_question_banks(username):
+#     db = create_connection()
+#     if db is None:
+#         return []
 
-    try:
-        # Get technologies from learning plans for the user
-        learning_plans_cursor = db.learning_plans.find(
-            {"username": username}, {"technology": 1, "_id": 0})
-        technologies = [lp['technology']
-                        for lp in learning_plans_cursor if 'technology' in lp]
+#     try:
+#         # Get technologies from learning plans for the user
+#         learning_plans_cursor = db.learning_plans.find(
+#             {"username": username}, {"technology": 1, "_id": 0})
+#         technologies = [lp['technology']
+#                         for lp in learning_plans_cursor if 'technology' in lp]
 
-        # Get IDs of question banks already completed by the user
-        completed_assessments_cursor = db.assessments.find(
-            {"username": username}, {"question_bank_id": 1, "_id": 0})
-        completed_qb_ids = [a['question_bank_id']
-                            for a in completed_assessments_cursor if 'question_bank_id' in a]
+#         # Get IDs of question banks already completed by the user
+#         completed_assessments_cursor = db.assessments.find(
+#             {"username": username}, {"question_bank_id": 1, "_id": 0})
+#         completed_qb_ids = [a['question_bank_id']
+#                             for a in completed_assessments_cursor if 'question_bank_id' in a]
 
-        # Find question banks matching learning plan technologies and not yet completed
-        query = {
-            "technology": {"$in": technologies},
-            "_id": {"$nin": completed_qb_ids}
-        }
-        question_banks_cursor = db.question_banks.find(
-            query, {"technology": 1, "topics": 1})
+#         # Find question banks matching learning plan technologies and not yet completed
+#         query = {
+#             "technology": {"$in": technologies},
+#             "_id": {"$nin": completed_qb_ids}
+#         }
+#         question_banks_cursor = db.question_banks.find(
+#             query, {"technology": 1, "topics": 1})
 
-        # Convert ObjectId to string for 'id' field in the returned dictionary
-        question_banks = []
-        for qb in question_banks_cursor:
-            qb['id'] = str(qb['_id'])
-            question_banks.append(qb)
+#         # Convert ObjectId to string for 'id' field in the returned dictionary
+#         question_banks = []
+#         for qb in question_banks_cursor:
+#             qb['id'] = str(qb['_id'])
+#             question_banks.append(qb)
 
-        return question_banks
-    except OperationFailure as e:
-        st.error(f"Error retrieving available question banks: {e}")
-        return []
+#         return question_banks
+#     except OperationFailure as e:
+#         st.error(f"Error retrieving available question banks: {e}")
+#         return []
 
 
 def get_completed_assessments(username):
@@ -2673,42 +2673,42 @@ def take_assessment():
                         st.session_state.user['username'], qb_id, correct_answers_count)
 
 
-def get_available_question_banks(username):
-    db = create_connection()
-    if db is None:
-        return []
+# def get_available_question_banks(username):
+#     db = create_connection()
+#     if db is None:
+#         return []
 
-    try:
-        # Get technologies from learning plans for the user
-        learning_plans_cursor = db.learning_plans.find(
-            {"username": username}, {"technology": 1, "_id": 0})
-        technologies = [lp['technology']
-                        for lp in learning_plans_cursor if 'technology' in lp]
+#     try:
+#         # Get technologies from learning plans for the user
+#         learning_plans_cursor = db.learning_plans.find(
+#             {"username": username}, {"technology": 1, "_id": 0})
+#         technologies = [lp['technology']
+#                         for lp in learning_plans_cursor if 'technology' in lp]
 
-        # Get IDs of question banks already completed by the user
-        completed_assessments_cursor = db.assessments.find(
-            {"username": username}, {"question_bank_id": 1, "_id": 0})
-        completed_qb_ids = [a['question_bank_id']
-                            for a in completed_assessments_cursor if 'question_bank_id' in a]
+#         # Get IDs of question banks already completed by the user
+#         completed_assessments_cursor = db.assessments.find(
+#             {"username": username}, {"question_bank_id": 1, "_id": 0})
+#         completed_qb_ids = [a['question_bank_id']
+#                             for a in completed_assessments_cursor if 'question_bank_id' in a]
 
-        # Find question banks matching learning plan technologies and not yet completed
-        query = {
-            "technology": {"$in": technologies},
-            "_id": {"$nin": completed_qb_ids}
-        }
-        question_banks_cursor = db.question_banks.find(
-            query, {"technology": 1, "topics": 1})
+#         # Find question banks matching learning plan technologies and not yet completed
+#         query = {
+#             "technology": {"$in": technologies},
+#             "_id": {"$nin": completed_qb_ids}
+#         }
+#         question_banks_cursor = db.question_banks.find(
+#             query, {"technology": 1, "topics": 1})
 
-        # Convert ObjectId to string for 'id' field in the returned dictionary
-        question_banks = []
-        for qb in question_banks_cursor:
-            qb['id'] = str(qb['_id'])
-            question_banks.append(qb)
+#         # Convert ObjectId to string for 'id' field in the returned dictionary
+#         question_banks = []
+#         for qb in question_banks_cursor:
+#             qb['id'] = str(qb['_id'])
+#             question_banks.append(qb)
 
-        return question_banks
-    except OperationFailure as e:
-        st.error(f"Error retrieving available question banks: {e}")
-        return []
+#         return question_banks
+#     except OperationFailure as e:
+#         st.error(f"Error retrieving available question banks: {e}")
+#         return []
 
 
 def get_completed_assessments(username):
@@ -3897,12 +3897,11 @@ def update_learning_plan_status(plan_id, new_status):
 def employee_dashboard(username):
     st.header(f"Welcome, {username}! 🚀")
     notifications = get_notifications("employee", username)
-
     user_id = st.session_state.get('user', {}).get('_id', "unique_user_id")
+
+    # Initialize session state variables for chat and assessment
     if user_id and f"chat_history_{user_id}" not in st.session_state:
         st.session_state[f"chat_history_{user_id}"] = []
-
-    # --- FIX: INITIALIZE ASSESSMENT STATE VARIABLES HERE ---
     if 'assessment_started' not in st.session_state:
         st.session_state.assessment_started = False
     if 'assessment_finished' not in st.session_state:
@@ -3922,10 +3921,8 @@ def employee_dashboard(username):
     if selected_tab == "Your Learning Plan":
         st.subheader("Your Learning Plan 📋")
         learning_plans = get_user_learning_plans(username)
-
         if not learning_plans:
-            st.info(
-                "You don't have any learning plans assigned yet. Please contact your trainer.")
+            st.info("You don't have any learning plans assigned yet. Please contact your trainer.")
         else:
             st.info(f"You have {len(learning_plans)} learning plan(s).")
             for plan in learning_plans:
@@ -3936,12 +3933,10 @@ def employee_dashboard(username):
                     st.markdown(f"**Assigned On:** {plan['start_date']}")
                     st.markdown(f"**Target End Date:** {plan['end_date']}")
                     estimated_hours = round(plan['estimated_time'] / 60, 1)
-                    st.markdown(
-                        f"**Estimated Time:** ~{estimated_hours} hours")
+                    st.markdown(f"**Estimated Time:** ~{estimated_hours} hours")
 
                     status_options = ["Assigned", "In Progress", "Completed"]
-                    current_status_index = status_options.index(
-                        plan.get('status', 'Assigned'))
+                    current_status_index = status_options.index(plan.get('status', 'Assigned'))
                     new_status = st.selectbox(
                         "Update Your Progress", options=status_options, index=current_status_index,
                         key=f"status_{plan['_id']}"
@@ -3952,10 +3947,9 @@ def employee_dashboard(username):
                             st.rerun()
                         else:
                             st.error("Failed to update status.")
-
+                    
                     st.write("---")
-                    plan_doc_data = generate_personalized_learning_plan_document(
-                        plan['_id'])
+                    plan_doc_data = generate_personalized_learning_plan_document(plan['_id'])
                     if plan_doc_data:
                         st.download_button(
                             label="Download Plan as DOCX",
@@ -3966,7 +3960,6 @@ def employee_dashboard(username):
                         )
 
     # --- Prepare from Material Tab ---
-     # --- Prepare from Material Tab (WITH TRANSLATION ADDED) ---
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
         learning_plans = get_user_learning_plans(username)
@@ -3981,13 +3974,10 @@ def employee_dashboard(username):
                     st.markdown("---")
                     st.subheader("Curriculum Content")
                     st.info(curriculum_content)
-
-                    # --- NEW TRANSLATION FEATURE ---
                     st.markdown("---")
                     st.subheader("Translate Material")
                     languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish", "French", "German", "Chinese", "Japanese", "Korean"]
                     selected_language = st.selectbox("Translate to:", languages)
-
                     if st.button("Translate", key="translate_material"):
                         with st.spinner(f"Translating to {selected_language}..."):
                             try:
@@ -3996,21 +3986,15 @@ def employee_dashboard(username):
                                 st.success(translated_text)
                             except Exception as e:
                                 st.error(f"Translation failed. Error: {e}")
-                    # --- END OF NEW FEATURE ---
                 else:
                     st.error("Could not retrieve content for the selected curriculum.")
 
-
-# In employee_dashboard(), replace the entire "Take Assessment" block with this:
-
+    # --- Interactive Assessment Tab ---
     elif selected_tab == "Take Assessment":
         st.subheader("Take Assessment ✍️")
-
-        # --- View 1: Assessment Selection ---
-        if 'assessment_started' not in st.session_state or not st.session_state.assessment_started:
-            st.session_state.assessment_started = False
-            st.session_state.assessment_finished = False
-
+        
+        # View 1: Assessment Selection
+        if not st.session_state.assessment_started:
             learning_plans = get_user_learning_plans(username)
             available_assessments = [p for p in learning_plans if p.get('status') != 'Completed']
 
@@ -4025,22 +4009,18 @@ def employee_dashboard(username):
                     index=None,
                     placeholder="Choose an assessment..."
                 )
-
                 if selected_qb_id_str:
                     qb_id = ObjectId(selected_qb_id_str)
                     all_qbs = get_all_question_banks()
                     qb_details = next((qb for qb in all_qbs if qb['_id'] == qb_id), None)
-
                     if qb_details:
                         questions = [q for q in qb_details.get('questions', '').split('\n') if q.strip()]
                         time_limit_minutes = len(questions) * 1.5
-
                         st.info(f"""
                         **You have selected:** {qb_details['technology']} ({qb_details['difficulty']})
                         - **Number of Questions:** {len(questions)}
                         - **Time Limit:** {int(time_limit_minutes)} minutes
                         """)
-
                         if st.button("Start Assessment", type="primary"):
                             st.session_state.assessment_started = True
                             st.session_state.assessment_finished = False
@@ -4053,24 +4033,19 @@ def employee_dashboard(username):
                             st.session_state.end_time = datetime.now() + timedelta(minutes=time_limit_minutes)
                             st.rerun()
 
-        # --- View 2: Assessment in Progress ---
+        # View 2: Assessment in Progress
         elif st.session_state.assessment_started and not st.session_state.assessment_finished:
             time_left = st.session_state.end_time - datetime.now()
-            
             if time_left.total_seconds() < 0:
                 st.warning("Time is up! Submitting your assessment automatically.")
                 st.session_state.assessment_finished = True
                 st.rerun()
 
-            # Persistent Top Bar
             top_cols = st.columns([3, 1])
-            with top_cols[0]:
-                st.subheader(f"Assessment: {st.session_state.qb_details['technology']}")
-            with top_cols[1]:
-                st.markdown(f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
+            top_cols[0].subheader(f"Assessment: {st.session_state.qb_details['technology']}")
+            top_cols[1].markdown(f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
             st.progress(time_left.total_seconds() / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
 
-            # Sidebar Navigation
             with st.sidebar:
                 st.write("---")
                 st.subheader("Question Palette")
@@ -4079,75 +4054,68 @@ def employee_dashboard(username):
                     col = palette_cols[i % 5]
                     is_current = (i == st.session_state.current_question_index)
                     is_answered = (st.session_state.user_answers[i] is not None and st.session_state.user_answers[i] != "")
-                    
                     btn_type = "primary" if is_current else ("secondary" if is_answered else "secondary")
-                    btn_label = f"**{i+1}**" if is_current else str(i+1)
-
-                    if col.button(btn_label, key=f"nav_{i}", use_container_width=True, type=btn_type):
+                    if col.button(f"{i+1}", key=f"nav_{i}", use_container_width=True, type=btn_type):
                         st.session_state.current_question_index = i
                         st.rerun()
 
-            # Main Question Area
             q_idx = st.session_state.current_question_index
-            question_data = st.session_state.questions[q_idx]
-            
             st.markdown(f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
-            st.write(question_data)
+            st.write(st.session_state.questions[q_idx])
 
-            # This is where the answer is stored temporarily before being saved
             def record_answer():
-                 st.session_state.user_answers[q_idx] = st.session_state[f"q_widget_{q_idx}"]
+                st.session_state.user_answers[q_idx] = st.session_state[f"q_widget_{q_idx}"]
 
-            # --- LOGIC TO DISPLAY CORRECT WIDGET ---
             question_type = st.session_state.qb_details.get('question_type', '').lower()
-
             if question_type == "multiple-choice":
-                options_from_qb = st.session_state.qb_details.get('options', '').split('|||')
-                if q_idx < len(options_from_qb) and options_from_qb[q_idx]:
-                    options = options_from_qb[q_idx].split('###')
-                    st.radio(
-                        "Select your answer:", 
-                        options, 
-                        key=f"q_widget_{q_idx}", 
-                        index=None if st.session_state.user_answers[q_idx] is None else options.index(st.session_state.user_answers[q_idx]),
-                        on_change=record_answer
-                    )
-                else:
-                    st.warning("Options for this multiple-choice question are missing.")
-
+                options = st.session_state.qb_details.get('options', '').split('|||')[q_idx].split('###')
+                st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", 
+                         index=None if st.session_state.user_answers[q_idx] is None else options.index(st.session_state.user_answers[q_idx]),
+                         on_change=record_answer)
             elif question_type == "fill-in-the-blank":
-                st.text_input(
-                    "Your answer:", 
-                    key=f"q_widget_{q_idx}", 
-                    value=st.session_state.user_answers[q_idx] or "",
-                    on_change=record_answer
-                )
+                st.text_input("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
+            else: # Subjective
+                st.text_area("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
 
-            elif question_type == "subjective":
-                st.text_area(
-                    "Your answer:", 
-                    key=f"q_widget_{q_idx}", 
-                    value=st.session_state.user_answers[q_idx] or "",
-                    on_change=record_answer
-                )
-            else:
-                st.error(f"Unknown question type: '{question_type}'. Please contact your trainer.")
-
-
-            # --- Bottom Navigation ---
             st.write("---")
             nav_cols = st.columns([1, 1, 2, 1, 1])
-            
             if nav_cols[0].button("Previous", use_container_width=True, disabled=(q_idx == 0)):
                 st.session_state.current_question_index -= 1
                 st.rerun()
-
             if nav_cols[4].button("Next", use_container_width=True, disabled=(q_idx >= len(st.session_state.questions) - 1)):
                 st.session_state.current_question_index += 1
                 st.rerun()
-
             if nav_cols[2].button("Finish & Submit Assessment", type="primary", use_container_width=True):
                 st.session_state.assessment_finished = True
+                st.rerun()
+
+        # View 3: Results Page
+        else:
+            st.subheader("Assessment Results")
+            score = 0
+            for i, user_answer in enumerate(st.session_state.user_answers):
+                if user_answer is not None and user_answer.strip().lower() == st.session_state.correct_answers[i].strip().lower():
+                    score += 1
+            total_questions = len(st.session_state.questions)
+            percentage = (score / total_questions) * 100 if total_questions > 0 else 0
+            st.metric("Final Score", f"{score} / {total_questions}", f"{percentage:.2f}%")
+            save_assessment_result(username, st.session_state.qb_details['_id'], score)
+            
+            with st.expander("Review Your Answers", expanded=True):
+                for i, q in enumerate(st.session_state.questions):
+                    st.write(f"**Question {i+1}: {q}**")
+                    user_ans = st.session_state.user_answers[i]
+                    correct_ans = st.session_state.correct_answers[i]
+                    if user_ans and user_ans.strip().lower() == correct_ans.strip().lower():
+                        st.success(f"✔️ Your answer: {user_ans}")
+                    else:
+                        st.error(f"❌ Your answer: {user_ans if user_ans else 'Not Answered'}")
+                        st.info(f"Correct answer: {correct_ans}")
+                    st.write("---")
+            if st.button("Take Another Assessment"):
+                keys_to_delete = [k for k in st.session_state.keys() if k.startswith('assessment_') or k.startswith('q_widget_')]
+                for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
+                    if key in st.session_state: del st.session_state[key]
                 st.rerun()
 
         # --- View 3: Results Page ---
