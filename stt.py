@@ -780,13 +780,13 @@ def trainer_dashboard():
         st.sidebar.write("No notifications available.")
 
 
-# Download NLTK data
 try:
     nltk.data.find('sentiment/vader_lexicon.zip')
 except LookupError:
-    st.info("Downloading NLTK 'vader_lexicon' for sentiment analysis...")
+    # This will print to your Render logs but not to the app's screen
+    print("NLTK 'vader_lexicon' not found. Downloading...")
     nltk.download('vader_lexicon')
-    st.success("Download complete.")
+    print("Download complete.")
 # Load .env file (if used locally for development)
 # from dotenv import load_dotenv
 # load_dotenv()
