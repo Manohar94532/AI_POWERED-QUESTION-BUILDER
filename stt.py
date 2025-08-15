@@ -74,8 +74,8 @@ def trainer_dashboard():
         selected = option_menu(
             menu_title="Trainer Dashboard",
             options=[
-                "Assign Employees", "Upload Curriculum", "Generate Question Bank", "View Questions",
-                "Assign Learning Plan", "Review Feedback", "Employee Performance", "Chatbot"
+                "Assign students", "Upload Curriculum", "Generate Question Bank", "View Questions",
+                "Assign Learning Plan", "Review Feedback", "student Performance", "Chatbot"
             ],
             icons=[
                 "person-plus", "upload", "question-circle", "eye", "card-checklist",
@@ -88,26 +88,26 @@ def trainer_dashboard():
     question_banks = []
     # Display content based on the selected option
 
-    # --- NEW: Assign Employees Page ---
-    if selected == "Assign Employees":
-        st.subheader("Assign New Employees 🧑‍🏫")
-        unassigned_employees = get_unassigned_employees()
+    # --- NEW: Assign students Page ---
+    if selected == "Assign students":
+        st.subheader("Assign New students 🧑‍🏫")
+        unassigned_students = get_unassigned_students()
 
-        if not unassigned_employees:
-            st.info("There are currently no unassigned employees.")
+        if not unassigned_students:
+            st.info("There are currently no unassigned students.")
         else:
-            employee_usernames = [emp['username']
-                                  for emp in unassigned_employees]
-            selected_employees = st.multiselect(
-                "Select employees to assign to yourself:",
-                options=employee_usernames
+            student_usernames = [emp['username']
+                                  for emp in unassigned_students]
+            selected_students = st.multiselect(
+                "Select students to assign to yourself:",
+                options=student_usernames
             )
-            if st.button("Assign Selected Employees"):
-                if not selected_employees:
-                    st.warning("Please select at least one employee.")
-                elif assign_employees_to_trainer(selected_employees, trainer_username):
+            if st.button("Assign Selected students"):
+                if not selected_students:
+                    st.warning("Please select at least one student.")
+                elif assign_students_to_trainer(selected_students, trainer_username):
                     st.success(
-                        f"Successfully assigned {', '.join(selected_employees)}!")
+                        f"Successfully assigned {', '.join(selected_students)}!")
                     st.rerun()
                 else:
                     st.error("An error occurred during assignment.")
@@ -196,31 +196,31 @@ def trainer_dashboard():
     # In trainer_dashboard(), find the "Assign Learning Plan" block and update the button logic:
 
     elif selected == "Assign Learning Plan":
-        st.subheader("Assign Learning Plan to Your Employees 🧑‍🏫")
-        assigned_employees = get_assigned_employees(trainer_username)
+        st.subheader("Assign Learning Plan to Your students 🧑‍🏫")
+        assigned_students = get_assigned_students(trainer_username)
         question_banks = get_trainer_question_banks(trainer_username)
 
-        if not assigned_employees:
-            st.warning("You have no employees assigned. Please assign them from the 'Assign Employees' tab.")
+        if not assigned_students:
+            st.warning("You have no students assigned. Please assign them from the 'Assign students' tab.")
         elif not question_banks:
             st.warning("You have no question banks. Please create one first.")
         else:
-            employee_options = [emp['username'] for emp in assigned_employees]
-            selected_employee = st.selectbox("Select Employee", options=employee_options)
+            student_options = [emp['username'] for emp in assigned_students]
+            selected_student = st.selectbox("Select student", options=student_options)
 
             qb_options = {str(qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
             selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(qb_options.keys()), format_func=lambda x: qb_options[x])
 
             if st.button("Assign Plan"):
                 # --- THIS IS THE CORRECTED FUNCTION CALL ---
-                plan_id = create_learning_plan(ObjectId(selected_qb_id), selected_employee, trainer_username)
+                plan_id = create_learning_plan(ObjectId(selected_qb_id), selected_student, trainer_username)
                 
                 if plan_id:
-                    st.success(f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_employee}!")
+                    st.success(f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_student}!")
                     send_notification(
-                        recipient_role="employee",
+                        recipient_role="student",
                         message=f"New plan '{qb_options[selected_qb_id]}' was assigned by {trainer_username}.",
-                        username=selected_employee
+                        username=selected_student
                     )
                 else:
                     st.error("Failed to assign plan. It may already be assigned.")
@@ -413,20 +413,20 @@ def trainer_dashboard():
                             mime='text/csv'
                         )
 
-    elif selected == "Employee Performance":
-        st.subheader("Employee Performance 📈")
-        employees = get_all_users()
+    elif selected == "student Performance":
+        st.subheader("student Performance 📈")
+        students = get_all_users()
 
-        if employees:
-            selected_employee = st.selectbox(
-                "Select Employee",
-                options=[employee['username'] for employee in employees],
-                key="employee_performance_select"
+        if students:
+            selected_student = st.selectbox(
+                "Select student",
+                options=[student['username'] for student in students],
+                key="student_performance_select"
             )
 
-            if selected_employee:
-                # Fetch assessment results for the selected employee
-                assessment_results = get_assessment_results(selected_employee)
+            if selected_student:
+                # Fetch assessment results for the selected student
+                assessment_results = get_assessment_results(selected_student)
                 if assessment_results:
                     # Prepare data for the table
                     performance_data = []
@@ -442,7 +442,7 @@ def trainer_dashboard():
                     performance_df = pd.DataFrame(performance_data)
 
                     # Display summary metrics
-                    st.subheader(f"Summary Statistics for {selected_employee}")
+                    st.subheader(f"Summary Statistics for {selected_student}")
                     total_assessments = len(performance_df)
                     avg_score = performance_df['Score'].mean(
                     ) if total_assessments > 0 else 0
@@ -458,7 +458,7 @@ def trainer_dashboard():
                         st.metric("Best Score", best_score)
 
                     # Display the performance data in a styled table
-                    st.write(f"Performance Data for {selected_employee}:")
+                    st.write(f"Performance Data for {selected_student}:")
                     st.dataframe(performance_df.style.highlight_max(
                         axis=0))  # Highlight max scores
 
@@ -486,19 +486,19 @@ def trainer_dashboard():
 
                     # Provide download buttons
                     st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
-                                       file_name=f"{selected_employee}_performance_over_time.html", mime="text/html")
+                                       file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
 
                     st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
-                                       file_name=f"{selected_employee}_score_by_question_bank.html", mime="text/html")
+                                       file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
 
                     st.download_button(label="Download Performance Data as CSV",
                                        data=performance_df.to_csv(index=False),
-                                       file_name=f"{selected_employee}_performance.csv", mime="text/csv")
+                                       file_name=f"{selected_student}_performance.csv", mime="text/csv")
 
                 else:
-                    st.info("No assessment results available for this employee.")
+                    st.info("No assessment results available for this student.")
         else:
-            st.info("No employees available.")
+            st.info("No students available.")
 
     # Display content based on the selected option
     if selected == "Generate Questions":
@@ -854,48 +854,48 @@ def create_connection():
 db = create_connection()
 
 
-def get_unassigned_employees():
-    """Fetches employees who are not yet assigned to any trainer."""
+def get_unassigned_students():
+    """Fetches students who are not yet assigned to any trainer."""
     if db is None:
         return []
     try:
         unassigned = db.users.find({
-            "role": "Employee",
+            "role": "student",
             "assigned_trainer": None
         })
         return list(unassigned)
     except OperationFailure as e:
-        st.error(f"DB Error fetching unassigned employees: {e}")
+        st.error(f"DB Error fetching unassigned students: {e}")
         return []
 
 
-def assign_employees_to_trainer(employee_usernames, trainer_username):
-    """Assigns a list of employees to the specified trainer."""
+def assign_students_to_trainer(student_usernames, trainer_username):
+    """Assigns a list of students to the specified trainer."""
     if db is None:
         return False
     try:
         result = db.users.update_many(
-            {"username": {"$in": employee_usernames}},
+            {"username": {"$in": student_usernames}},
             {"$set": {"assigned_trainer": trainer_username}}
         )
         return result.modified_count > 0
     except OperationFailure as e:
-        st.error(f"DB Error assigning employees: {e}")
+        st.error(f"DB Error assigning students: {e}")
         return False
 
 
-def get_assigned_employees(trainer_username):
-    """Fetches all employees assigned to a specific trainer."""
+def get_assigned_students(trainer_username):
+    """Fetches all students assigned to a specific trainer."""
     if db is None:
         return []
     try:
-        employees = db.users.find({
-            "role": "Employee",
+        students = db.users.find({
+            "role": "student",
             "assigned_trainer": trainer_username
         })
-        return list(employees)
+        return list(students)
     except OperationFailure as e:
-        st.error(f"DB Error fetching assigned employees: {e}")
+        st.error(f"DB Error fetching assigned students: {e}")
         return []
 
 
@@ -1140,17 +1140,17 @@ def register_user(email, username, password, role):
         "password": hashed_password,
         "role": role,
     }
-    # NEW: Set assigned_trainer to None for new employees
-    if role == "Employee":
+    # NEW: Set assigned_trainer to None for new students
+    if role == "student":
         user_data["assigned_trainer"] = None
 
     try:
         db.users.insert_one(user_data)
-        # NEW: Notify trainers of new employee registration
-        if role == "Employee":
+        # NEW: Notify trainers of new student registration
+        if role == "student":
             send_notification(
                 recipient_role="trainer",
-                message=f"New employee '{username}' has registered and needs assignment.",
+                message=f"New student '{username}' has registered and needs assignment.",
                 username=None  # General notification for all trainers
             )
         return True
@@ -1404,7 +1404,7 @@ def get_all_question_banks():
         st.error(f"Database error: {err}")
         return None
 
-# Employee Functions
+# student Functions
 
 
 # def get_learning_plan(username):
@@ -1623,7 +1623,7 @@ def admin_dashboard():
             options=["System Stats",
                      "User  Management",
                      "Reports",
-                     "Employee Performance"],  # required
+                     "student Performance"],  # required
             icons=["bar-chart", "people", "file-earmark-text",
                    "person-check"],  # optional
             menu_icon="cast",  # optional
@@ -1721,7 +1721,7 @@ def admin_dashboard():
                         with cols[1]:  # Role selection column
                             new_role = st.selectbox(
                                 f"New Role for {user.get('username')}",
-                                ["None", "Administrator", "Trainer", "Employee"],
+                                ["None", "Administrator", "Trainer", "student"],
                                 key=f"new_role_{user.get('username')}",
                                 label_visibility="collapsed"  # Hides the label
                             )
@@ -1758,7 +1758,7 @@ def admin_dashboard():
         report_type = st.selectbox("Select Report Type",
                                    ["User Activity", "Question Bank Usage",
                                     "Feedback Summary", "Sentiment Analysis",
-                                    "Employee Performance"])
+                                    "student Performance"])
 
         if st.button("Generate Report"):
             if report_type == "User Activity":
@@ -1769,23 +1769,23 @@ def admin_dashboard():
                 feedback_summary_report()
             elif report_type == "Sentiment Analysis":
                 sentiment_analysis_report()
-            elif report_type == "Employee Performance":
-                employee_performance_report()
+            elif report_type == "student Performance":
+                student_performance_report()
 
-    elif selected_tab == "Employee Performance":
-        st.subheader("Employee Performance 🎯")
-        employees = get_all_users()
+    elif selected_tab == "student Performance":
+        st.subheader("student Performance 🎯")
+        students = get_all_users()
 
-        if employees:
-            selected_employee = st.selectbox(
-                "Select Employee",
-                options=[employee['username'] for employee in employees],
-                key="employee_performance_select"
+        if students:
+            selected_student = st.selectbox(
+                "Select student",
+                options=[student['username'] for student in students],
+                key="student_performance_select"
             )
 
-            if selected_employee:
-                # Fetch assessment results for the selected employee
-                assessment_results = get_assessment_results(selected_employee)
+            if selected_student:
+                # Fetch assessment results for the selected student
+                assessment_results = get_assessment_results(selected_student)
                 if assessment_results:
                     # Prepare data for the table
                     performance_data = []
@@ -1801,7 +1801,7 @@ def admin_dashboard():
                     performance_df = pd.DataFrame(performance_data)
 
                     # Display summary metrics
-                    st.subheader(f"Summary Statistics for {selected_employee}")
+                    st.subheader(f"Summary Statistics for {selected_student}")
                     total_assessments = len(performance_df)
                     avg_score = performance_df['Score'].mean(
                     ) if total_assessments > 0 else 0
@@ -1817,7 +1817,7 @@ def admin_dashboard():
                         st.metric("Best Score", best_score)
 
                     # Display the performance data in a styled table
-                    st.write(f"Performance Data for {selected_employee}:")
+                    st.write(f"Performance Data for {selected_student}:")
                     st.dataframe(performance_df.style.highlight_max(
                         axis=0))  # Highlight max scores
 
@@ -1845,19 +1845,19 @@ def admin_dashboard():
 
                     # Provide download buttons
                     st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
-                                       file_name=f"{selected_employee}_performance_over_time.html", mime="text/html")
+                                       file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
 
                     st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
-                                       file_name=f"{selected_employee}_score_by_question_bank.html", mime="text/html")
+                                       file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
 
                     st.download_button(label="Download Performance Data as CSV",
                                        data=performance_df.to_csv(index=False),
-                                       file_name=f"{selected_employee}_performance.csv", mime="text/csv")
+                                       file_name=f"{selected_student}_performance.csv", mime="text/csv")
 
                 else:
-                    st.info("No assessment results available for this employee.")
+                    st.info("No assessment results available for this student.")
         else:
-            st.info("No employees available.")
+            st.info("No students available.")
 
     # Display content based on the selected option
         if selected_tab == "Generate Questions":
@@ -2548,7 +2548,7 @@ def get_all_question_banks():
         st.error(f"Database error: {err}")
         return None
 
-# Employee Functions
+# student Functions
 
 
 def get_learning_plan(username):
@@ -2767,7 +2767,7 @@ def admin_dashboard():
             options=["System Stats",
                      "User  Management",
                      "Reports",
-                     "Employee Performance"],  # required
+                     "student Performance"],  # required
             icons=["bar-chart", "people", "file-earmark-text",
                    "person-check"],  # optional
             menu_icon="cast",  # optional
@@ -2865,7 +2865,7 @@ def admin_dashboard():
                         with cols[1]:  # Role selection column
                             new_role = st.selectbox(
                                 f"New Role for {user.get('username')}",
-                                ["None", "Administrator", "Trainer", "Employee"],
+                                ["None", "Administrator", "Trainer", "student"],
                                 key=f"new_role_{user.get('username')}",
                                 label_visibility="collapsed"  # Hides the label
                             )
@@ -2902,7 +2902,7 @@ def admin_dashboard():
         report_type = st.selectbox("Select Report Type",
                                    ["User Activity", "Question Bank Usage",
                                     "Feedback Summary", "Sentiment Analysis",
-                                    "Employee Performance"])
+                                    "student Performance"])
 
         if st.button("Generate Report"):
             if report_type == "User Activity":
@@ -2913,23 +2913,23 @@ def admin_dashboard():
                 feedback_summary_report()
             elif report_type == "Sentiment Analysis":
                 sentiment_analysis_report()
-            elif report_type == "Employee Performance":
-                employee_performance_report()
+            elif report_type == "student Performance":
+                student_performance_report()
 
-    elif selected_tab == "Employee Performance":
-        st.subheader("Employee Performance 🎯")
-        employees = get_all_users()
+    elif selected_tab == "student Performance":
+        st.subheader("student Performance 🎯")
+        students = get_all_users()
 
-        if employees:
-            selected_employee = st.selectbox(
-                "Select Employee",
-                options=[employee['username'] for employee in employees],
-                key="employee_performance_select"
+        if students:
+            selected_student = st.selectbox(
+                "Select student",
+                options=[student['username'] for student in students],
+                key="student_performance_select"
             )
 
-            if selected_employee:
-                # Fetch assessment results for the selected employee
-                assessment_results = get_assessment_results(selected_employee)
+            if selected_student:
+                # Fetch assessment results for the selected student
+                assessment_results = get_assessment_results(selected_student)
                 if assessment_results:
                     # Prepare data for the table
                     performance_data = []
@@ -2945,7 +2945,7 @@ def admin_dashboard():
                     performance_df = pd.DataFrame(performance_data)
 
                     # Display summary metrics
-                    st.subheader(f"Summary Statistics for {selected_employee}")
+                    st.subheader(f"Summary Statistics for {selected_student}")
                     total_assessments = len(performance_df)
                     avg_score = performance_df['Score'].mean(
                     ) if total_assessments > 0 else 0
@@ -2961,7 +2961,7 @@ def admin_dashboard():
                         st.metric("Best Score", best_score)
 
                     # Display the performance data in a styled table
-                    st.write(f"Performance Data for {selected_employee}:")
+                    st.write(f"Performance Data for {selected_student}:")
                     st.dataframe(performance_df.style.highlight_max(
                         axis=0))  # Highlight max scores
 
@@ -2989,19 +2989,19 @@ def admin_dashboard():
 
                     # Provide download buttons
                     st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
-                                       file_name=f"{selected_employee}_performance_over_time.html", mime="text/html")
+                                       file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
 
                     st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
-                                       file_name=f"{selected_employee}_score_by_question_bank.html", mime="text/html")
+                                       file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
 
                     st.download_button(label="Download Performance Data as CSV",
                                        data=performance_df.to_csv(index=False),
-                                       file_name=f"{selected_employee}_performance.csv", mime="text/csv")
+                                       file_name=f"{selected_student}_performance.csv", mime="text/csv")
 
                 else:
-                    st.info("No assessment results available for this employee.")
+                    st.info("No assessment results available for this student.")
         else:
-            st.info("No employees available.")
+            st.info("No students available.")
 
     # Display notifications in the sidebar
 
@@ -3017,14 +3017,14 @@ def admin_dashboard():
         st.sidebar.write("No notifications available.")
 
 
-def employee_performance_report():
+def student_performance_report():
     db = create_connection()
     if db is None:
         st.error("Failed to connect to database")
         return
 
     try:
-        # Aggregation pipeline to get employee performance
+        # Aggregation pipeline to get student performance
         pipeline = [
             {"$group": {
                 "_id": "$username",
@@ -3044,8 +3044,8 @@ def employee_performance_report():
             df = pd.DataFrame(results)
 
             # Create an interactive bar chart using Plotly
-            fig = px.bar(df, x='username', y='avg_score', title='Employee Performance',
-                         labels={'username': 'Employee',
+            fig = px.bar(df, x='username', y='avg_score', title='student Performance',
+                         labels={'username': 'student',
                                  'avg_score': 'Average Score'},
                          color='avg_score', color_continuous_scale=px.colors.sequential.Viridis)
 
@@ -3059,17 +3059,17 @@ def employee_performance_report():
             st.download_button(
                 label="Download Chart as HTML",
                 data=fig_html,
-                file_name="employee_performance_chart.html",
+                file_name="student_performance_chart.html",
                 mime="text/html"
             )
 
             # Download CSV Data
             csv = df.to_csv(index=False)
             st.download_button(label="Download as CSV", data=csv,
-                               file_name="employee_performance.csv", mime="text/csv")
+                               file_name="student_performance.csv", mime="text/csv")
 
         else:
-            st.error("No employee performance data available")
+            st.error("No student performance data available")
     except OperationFailure as e:
         st.error(f"Database error during report generation: {e}")
 
@@ -3081,7 +3081,7 @@ def user_activity_report():
         return
 
     try:
-        # Aggregation pipeline to get user activity for employees
+        # Aggregation pipeline to get user activity for students
         pipeline = [
             {"$lookup": {
                 "from": "users",
@@ -3090,7 +3090,7 @@ def user_activity_report():
                 "as": "user_info"
             }},
             {"$unwind": "$user_info"},
-            {"$match": {"user_info.role": "Employee"}},
+            {"$match": {"user_info.role": "student"}},
             {"$group": {
                 "_id": "$username",
                 "num_assessments": {"$sum": 1},
@@ -3367,8 +3367,8 @@ def feedback_received(feedback):
         # Changed username to "system"
         send_notification(recipient_role, message, "system")
 
-        # Send notification to employee
-        recipient_role = "employee"
+        # Send notification to student
+        recipient_role = "student"
         message = f"New feedback received: {feedback}"
         print(f"Sending notification to {recipient_role}: {message}")
         # Changed username to "system"
@@ -3898,11 +3898,11 @@ def update_learning_plan_status(plan_id, new_status):
         return False
 
 
-# Replace your entire existing employee_dashboard with this corrected version
+# Replace your entire existing student_dashboard with this corrected version
 
-def employee_dashboard(username):
+def student_dashboard(username):
     st.header(f"Welcome, {username}! 🚀")
-    notifications = get_notifications("employee", username)
+    notifications = get_notifications("student", username)
     user_id = st.session_state.get('user', {}).get('_id', "unique_user_id")
 
     # Initialize session state variables for chat and assessment
@@ -3915,7 +3915,7 @@ def employee_dashboard(username):
 
     with st.sidebar:
         selected_tab = option_menu(
-            menu_title="Employee Dashboard",
+            menu_title="student Dashboard",
             options=["Your Learning Plan", "Prepare from Material", "Take Assessment", "Your Progress",
                      "Discussion Forum", "Resources", "Chatbot", "Feedback"],
             icons=["book", "file-earmark-text", "check-circle", "bar-chart",
@@ -3966,11 +3966,11 @@ def employee_dashboard(username):
                         )
 
     # --- Prepare from Material Tab ---
-    # In employee_dashboard(), update the "Prepare from Material" block
+    # In student_dashboard(), update the "Prepare from Material" block
 
-    # In employee_dashboard(), replace the "Prepare from Material" block
+    # In student_dashboard(), replace the "Prepare from Material" block
 
-    # In employee_dashboard(), replace the "Prepare from Material" block with this:
+    # In student_dashboard(), replace the "Prepare from Material" block with this:
 
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
@@ -4008,13 +4008,13 @@ def employee_dashboard(username):
                     st.error("Could not identify the trainer for this learning plan.")
 
     # --- Interactive Assessment Tab ---
-    # In employee_dashboard(), replace the entire "Take Assessment" block with this:
+    # In student_dashboard(), replace the entire "Take Assessment" block with this:
 
-    # In employee_dashboard(), replace the entire "Take Assessment" block with this:
+    # In student_dashboard(), replace the entire "Take Assessment" block with this:
 
-    # In your employee_dashboard function, replace the entire "Take Assessment" block with this:
+    # In your student_dashboard function, replace the entire "Take Assessment" block with this:
 
-    # In your employee_dashboard function, replace the entire "Take Assessment" block with this:
+    # In your student_dashboard function, replace the entire "Take Assessment" block with this:
 
     elif selected_tab == "Take Assessment":
         st.subheader("Take Assessment ✍️")
@@ -4342,7 +4342,7 @@ def employee_dashboard(username):
         else:
             st.info("You haven't completed any assessments yet.")
 
-    # In your employee_dashboard function:
+    # In your student_dashboard function:
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
         learning_plans = get_user_learning_plans(username)
@@ -4523,7 +4523,7 @@ def employee_dashboard(username):
                 st.error("Failed to submit feedback.")
 
     notifications = get_notifications(
-        "employee", username)  # Pass the username here
+        "student", username)  # Pass the username here
     # Display notifications in the sidebar
     display_notifications(notifications, username)
     if notifications:
@@ -4997,7 +4997,7 @@ def save_assessment_result(username, qb_id, score):
         else:
             feedback_message = f"Keep practicing, {username}. Your score of {score}/10 indicates more review is needed."
 
-        send_notification("employee", feedback_message,
+        send_notification("student", feedback_message,
                           username)  # Pass the username here
 
         return True
@@ -5164,11 +5164,11 @@ def main():
                 # Check if admin exists before showing admin role option
                 admin_exists = check_admin_exists()
                 if admin_exists:
-                    role_options = ["Trainer", "Employee"]
+                    role_options = ["Trainer", "student"]
                     role = st.selectbox(
                         "Role 👨🏻‍💼", role_options, key="register_role")
                 else:
-                    role_options = ["Administrator", "Trainer", "Employee"]
+                    role_options = ["Administrator", "Trainer", "student"]
                     role = st.selectbox(
                         "Role", role_options, key="register_role")
                     if role == "Administrator":
@@ -5200,8 +5200,8 @@ def main():
             admin_dashboard()
         elif st.session_state.user['role'] == 'Trainer':
             trainer_dashboard()
-        elif st.session_state.user['role'] == 'Employee':
-            employee_dashboard(st.session_state.user['username'])
+        elif st.session_state.user['role'] == 'student':
+            student_dashboard(st.session_state.user['username'])
 
 
 if __name__ == "__main__":
