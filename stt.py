@@ -1006,166 +1006,192 @@ import random
 import time
 
 def generate_questions(text, num_questions=5, question_type="multiple-choice"):
-    # Add randomization to ensure unique questions each time
-    random_seed = random.randint(1000, 9999)
-    timestamp = int(time.time()) % 10000
-    
     if question_type == "multiple-choice":
-        # --- ENHANCED PROMPT WITH UNIQUENESS FACTORS ---
-        prompt = f"""Generate exactly {num_questions} unique multiple-choice questions based on the following text. 
+        prompt = f"""Generate {num_questions} multiple-choice questions based on the following text:
 
-        Important: Create completely new and different questions each time. Focus on different aspects, concepts, and details from the text.
+{text}
 
-        Text to analyze:
-        {text}
+Provide the questions and options in the following format, and clearly mark which option is correct by putting [CORRECT] after it:
 
-        Requirements:
-        - Generate exactly {num_questions} questions
-        - Each question should test different aspects of the content
-        - Provide 4 options (A, B, C, D) for each question
-        - Only ONE option should be correct
-        - Include the correct answer letter after each question
+Q1: [Question]
+A) [Option 1]
+B) [Option 2] [CORRECT]
+C) [Option 3]
+D) [Option 4]
 
-        Format (strictly follow this format):
-        
-        Q1: [Question about specific concept/detail]
-        A) [Option 1]
-        B) [Option 2] 
-        C) [Option 3]
-        D) [Option 4]
-        Answer: [Correct letter]
+Q2: [Question]
+A) [Option 1] [CORRECT]
+B) [Option 2]
+C) [Option 3]
+D) [Option 4]
 
-        Q2: [Question about different concept/detail]
-        A) [Option 1]
-        B) [Option 2]
-        C) [Option 3] 
-        D) [Option 4]
-        Answer: [Correct letter]
-
-        Generation ID: {random_seed}-{timestamp}
-        """
+Make sure to vary which option is correct across questions."""
     elif question_type == "subjective":
-        prompt = f"""Generate exactly {num_questions} unique subjective questions based on the following text. 
-        
-        Create diverse questions that explore different aspects of the content:
-        
-        {text}
-        
-        Generation ID: {random_seed}-{timestamp}
-        """
+        prompt = f"Generate {num_questions} subjective questions based on the following text:\n\n{text}\n\nProvide the questions in the following format:\n\nQ1: [Question]\n\nQ2: [Question]\n\n..."
     elif question_type == "fill-in-the-blank":
-        prompt = f"""Generate exactly {num_questions} unique fill-in-the-blank questions based on the following text. 
-        
-        Create questions that test different key terms and concepts:
-        
-        {text}
-        
-        Provide each answer on a new line starting with 'A:'.
-        
-        Generation ID: {random_seed}-{timestamp}
-        """
+        prompt = f"Generate {num_questions} fill-in-the-blank questions based on the following text:\n\n{text}\n\nProvide the questions and correct answers in the following format:\n\nQ1: [Question]\nA: [Correct Answer]\n\nQ2: [Question]\nA: [Correct Answer]\n\n..."
     else:
         raise ValueError("Invalid question type")
 
-    # Configure model for more randomness (if using Google Gemini)
-    generation_config = {
-        'temperature': 0.9,  # Higher temperature for more randomness
-        'top_p': 0.8,
-        'top_k': 40,
-        'max_output_tokens': 2048,
-    }
+    response = model.generate_content(prompt)
+    generated_text = response.text
 
-    try:
-        # Generate with randomness config
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config
-        )
-        generated_text = response.text
-    except:
-        # Fallback if generation_config is not supported
-        response = model.generate_content(prompt)
-        generated_text = response.text
-
-    print(f"Generating {num_questions} {question_type} questions... ID: {random_seed}-{timestamp}")
-    
     questions = []
     options = []
     correct_answers = []
 
-    # Split the entire text by the question marker "Q" followed by a number and colon.
-    question_blocks = re.split(r'Q\d+:', generated_text)[1:]
+    lines = [line.strip() for line in generated_text.split('\n') if line.strip()]
 
-    for i, block in enumerate(question_blocks):
-        if not block.strip() or i >= num_questions:  # Ensure we don't exceed requested number
-            continue
-
-        lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
-
-        if not lines:
-            continue
-
-        # --- ROBUST PARSING LOGIC ---
-        question_text = lines[0]
-        # Clean up question text
-        question_text = question_text.replace('Generation ID:', '').strip()
-        if question_text:
-            questions.append(question_text)
-
+    i = 0
+    while i < len(lines):
+        if lines[i].startswith('Q'):
+            question = lines[i].split(': ', 1)[1]
+            questions.append(question)
+            
             if question_type == "multiple-choice":
-                current_options = []
-                answer_line = ""
+                options_list = []
+                correct_answer_letter = None
                 
-                for line in lines[1:]:
-                    if re.match(r'^[A-D]\)', line):  # Matches A), B), C), D)
-                        option_text = line.split(') ', 1)[1] if ') ' in line else line[2:].strip()
-                        current_options.append(option_text)
-                    elif line.lower().startswith('answer:'):
-                        answer_line = line
-                    elif line.startswith('Generation ID:'):
-                        break  # Stop parsing when we hit the generation ID
-
-                options.append(current_options)
-
-                # --- Store the correct answer LETTER ---
-                if answer_line and current_options:
-                    try:
-                        correct_letter = answer_line.split(':')[1].strip().upper()
-                        # Validate that it's a valid option letter
-                        if correct_letter in ['A', 'B', 'C', 'D'] and ord(correct_letter) - ord('A') < len(current_options):
-                            correct_answers.append(correct_letter)
-                        else:
-                            print(f"Warning: Invalid answer letter '{correct_letter}' for question: {question_text}")
-                            correct_answers.append('A')  # Default fallback
-                    except Exception as e:
-                        print(f"Error parsing answer for question '{question_text}': {e}")
-                        correct_answers.append('A')  # Default fallback
-                else:
-                    print(f"Warning: No answer found for question: {question_text}")
-                    correct_answers.append('A')  # Default fallback
-
+                # Look for options immediately following the question
+                for j in range(i + 1, len(lines)):
+                    if lines[j].startswith(('A)', 'B)', 'C)', 'D)')):
+                        option_letter = lines[j][0]  # Get A, B, C, or D
+                        option_text = lines[j].split(') ', 1)[1]
+                        
+                        # Check if this option is marked as correct
+                        if '[CORRECT]' in option_text:
+                            option_text = option_text.replace('[CORRECT]', '').strip()
+                            correct_answer_letter = option_letter
+                        
+                        options_list.append(option_text)
+                    else:
+                        break  # Stop if a line doesn't start with an option letter
+                
+                options.append(options_list)
+                # Store the correct answer as a letter (A, B, C, D)
+                correct_answers.append(correct_answer_letter if correct_answer_letter else 'A')
+                i = j  # Move index to the line after the last option processed
+                
             elif question_type == "fill-in-the-blank":
-                options.append([])  # No options for fill-in-the-blank
-                if len(lines) > 1 and lines[1].startswith('A:'):
-                    correct_answers.append(lines[1].split('A:', 1)[1].strip())
+                if i+1 < len(lines) and lines[i+1].startswith('A:'):
+                    answer = lines[i+1].split(': ', 1)[1]
+                    options.append([answer])
+                    correct_answers.append(answer)
+                    i += 2
                 else:
+                    options.append([""])
                     correct_answers.append("")
-            else:  # Subjective
+                    i += 1
+            else:  # subjective
                 options.append([])
-                # Subjective questions have no single "correct" answer
                 correct_answers.append("")
+                i += 1
+        else:
+            i += 1
 
-    # Ensure we have the exact number of questions requested
-    if len(questions) < num_questions:
-        print(f"Warning: Only generated {len(questions)} questions instead of {num_questions}")
-    elif len(questions) > num_questions:
-        questions = questions[:num_questions]
-        options = options[:num_questions]
-        correct_answers = correct_answers[:num_questions]
+    return questions[:num_questions], options[:num_questions], correct_answers[:num_questions]
 
-    print(f"Successfully generated {len(questions)} questions")
-    return questions, options, correct_answers
 
+# Fixed Assessment Results Evaluation
+def evaluate_assessment_results():
+    """Fixed evaluation logic in the results section"""
+    st.subheader("Assessment Results")
+    score = 0
+    total_questions = len(st.session_state.questions)
+    
+    for i, user_answer in enumerate(st.session_state.user_answers):
+        correct_answer = st.session_state.correct_answers[i]
+        
+        # Get question type
+        question_type = st.session_state.qb_details.get('question_type', '').lower()
+        
+        if user_answer is not None and user_answer != "":
+            if question_type == "multiple-choice":
+                # For MCQ, both user_answer and correct_answer should be letters (A, B, C, D)
+                if user_answer.strip().upper() == correct_answer.strip().upper():
+                    score += 1
+            else:
+                # For fill-in-the-blank and subjective, compare text content
+                if user_answer.strip().lower() == correct_answer.strip().lower():
+                    score += 1
+    
+    percentage = (score / total_questions) * 100 if total_questions > 0 else 0
+    
+    st.metric("Final Score", f"{score} / {total_questions}", f"{percentage:.2f}%")
+    save_assessment_result(username, st.session_state.qb_details['_id'], score)
+
+    with st.expander("Review Your Answers", expanded=True):
+        # Get options for displaying in results
+        all_options_text = st.session_state.qb_details.get('options', '')
+        options_per_question = [opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
+        
+        for i, q in enumerate(st.session_state.questions):
+            st.write(f"**Question {i+1}: {q}**")
+            user_ans = st.session_state.user_answers[i]
+            correct_ans = st.session_state.correct_answers[i]
+            
+            # Determine if answer is correct
+            is_correct = False
+            question_type = st.session_state.qb_details.get('question_type', '').lower()
+            
+            if user_ans and user_ans != "":
+                if question_type == "multiple-choice":
+                    is_correct = user_ans.strip().upper() == correct_ans.strip().upper()
+                else:
+                    is_correct = user_ans.strip().lower() == correct_ans.strip().lower()
+            
+            # Display answers based on question type
+            if question_type == "multiple-choice":
+                if i < len(options_per_question) and options_per_question[i]:
+                    options = [opt.strip() for opt in options_per_question[i].split('###') if opt.strip()]
+                    
+                    # Show user answer
+                    if user_ans and user_ans in ['A', 'B', 'C', 'D']:
+                        user_index = ord(user_ans) - ord('A')
+                        if user_index < len(options):
+                            user_display = f"{user_ans}) {options[user_index]}"
+                        else:
+                            user_display = user_ans
+                    else:
+                        user_display = 'Not Answered'
+                    
+                    # Show correct answer
+                    if correct_ans and correct_ans in ['A', 'B', 'C', 'D']:
+                        correct_index = ord(correct_ans) - ord('A')
+                        if correct_index < len(options):
+                            correct_display = f"{correct_ans}) {options[correct_index]}"
+                        else:
+                            correct_display = correct_ans
+                    else:
+                        correct_display = correct_ans
+                else:
+                    user_display = user_ans if user_ans else 'Not Answered'
+                    correct_display = correct_ans
+            else:
+                user_display = user_ans if user_ans else 'Not Answered'
+                correct_display = correct_ans
+            
+            # Display result
+            if is_correct:
+                st.success(f"✔️ Your answer: {user_display}")
+            else:
+                st.error(f"❌ Your answer: {user_display}")
+                st.info(f"Correct answer: {correct_display}")
+            st.write("---")
+
+
+# Replace the results section in your main code with this:
+elif st.session_state.assessment_finished:
+    evaluate_assessment_results()
+    
+    if st.button("Take Another Assessment"):
+        # Clean up all session state variables related to the assessment
+        keys_to_delete = [k for k in st.session_state.keys() if k.startswith(
+            'assessment_') or k.startswith('q_widget_')]
+        for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
 # Removed ensure_table_exists as MongoDB handles collection creation implicitly
 
 
