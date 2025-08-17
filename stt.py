@@ -1,4 +1,3 @@
-import time
 from streamlit_lottie import st_lottie
 from streamlit_option_menu import option_menu
 import requests
@@ -45,13 +44,13 @@ import plotly.express as px
 from streamlit_lottie import st_lottie  # Import the Lottie function
 import requests  # To fetch the Lottie animation
 import googletrans
-# from google_trans_new import google_translator
+#from google_trans_new import google_translator
 # Using deep-translator as it's more reliable
 from deep_translator import GoogleTranslator
 
 
 # Initialize translator (from google_trans_new, if used elsewhere)
-# translator = google_translator()
+#translator = google_translator()
 
 
 st.set_page_config(layout="wide")
@@ -62,11 +61,11 @@ def trainer_dashboard():
     trainer_username = st.session_state.user['username']
 
     # Session state initialization
-    # --- FIX: INITIALIZE CHAT HISTORY HERE ---
+     # --- FIX: INITIALIZE CHAT HISTORY HERE ---
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     # -------------------------------------------
-
+    
     # Session state initialization for questions
     if 'generated_questions' not in st.session_state:
         st.session_state.generated_questions = []
@@ -75,8 +74,8 @@ def trainer_dashboard():
         selected = option_menu(
             menu_title="Trainer Dashboard",
             options=[
-                "Assign employees", "Upload Curriculum", "Generate Question Bank", "View Questions",
-                "Assign Learning Plan", "Review Feedback", "employee Performance", "Chatbot"
+                "Assign Employees", "Upload Curriculum", "Generate Question Bank", "View Questions",
+                "Assign Learning Plan", "Review Feedback", "Employee Performance", "Chatbot"
             ],
             icons=[
                 "person-plus", "upload", "question-circle", "eye", "card-checklist",
@@ -89,9 +88,9 @@ def trainer_dashboard():
     question_banks = []
     # Display content based on the selected option
 
-    # --- NEW: Assign employees Page ---
-    if selected == "Assign employees":
-        st.subheader("Assign New employees 🧑‍🏫")
+    # --- NEW: Assign Employees Page ---
+    if selected == "Assign Employees":
+        st.subheader("Assign New Employees 🧑‍🏫")
         unassigned_employees = get_unassigned_employees()
 
         if not unassigned_employees:
@@ -103,7 +102,7 @@ def trainer_dashboard():
                 "Select employees to assign to yourself:",
                 options=employee_usernames
             )
-            if st.button("Assign Selected employees"):
+            if st.button("Assign Selected Employees"):
                 if not selected_employees:
                     st.warning("Please select at least one employee.")
                 elif assign_employees_to_trainer(selected_employees, trainer_username):
@@ -134,179 +133,41 @@ def trainer_dashboard():
                     "Please provide a technology name and upload a file.")
 
     # --- Generate Question Bank Page (Modified) ---
-    # In your trainer_dashboard function, replace the "Generate Question Bank" block with this:
-
-    # In your trainer_dashboard function, replace the entire "Generate Question Bank" block with this:
-
     elif selected == "Generate Question Bank":
-        st.subheader("Generate a New Question Bank 📚")
-        st.write(
-            "Choose your preferred method to generate questions for your students.")
+        st.subheader("Generate Question Bank 📚")
+        curricula = get_trainer_curricula(trainer_username)
+        if not curricula:
+            st.warning(
+                "No curricula available. Please upload a curriculum first.")
+        else:
+            curriculum_map = {c['technology']: c['content'] for c in curricula}
+            selected_tech = st.selectbox(
+                "Select Curriculum", options=list(curriculum_map.keys()))
 
-        # --- NEW TABBED INTERFACE ---
-        tab_topic, tab_doc, tab_prompt = st.tabs(
-            ["📝 By Topic", "📄 From Document", "✍️ From Text"])
+            num_questions = st.number_input(
+                "Number of Questions", min_value=1, value=5)
+            question_type = st.selectbox(
+                "Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"])
+            difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
 
-        # --- TAB 1: GENERATE BY TOPIC NAME ---
-        with tab_topic:
-            st.info(
-                "Generate questions from the AI's general knowledge about a topic.")
-            tech_topic = st.text_input(
-                "Enter Technology Name (e.g., 'Python', 'JavaScript')", key="tech_topic")
-            topic_name = st.text_input(
-                "Enter Specific Topic (e.g., 'Data Structures', 'React Hooks')", key="topic_name")
-            num_questions_topic = st.number_input(
-                "Number of Questions", min_value=1, value=5, key="num_topic")
-            question_type_topic = st.selectbox("Question Type", [
-                                               "multiple-choice", "subjective", "fill-in-the-blank"], key="type_topic")
-            difficulty_topic = st.selectbox(
-                "Difficulty", ["Easy", "Medium", "Hard"], key="diff_topic")
-
-            if st.button("Generate & Save Question Bank", key="btn_topic", use_container_width=True):
-                if tech_topic and topic_name:
-                    with st.spinner("AI is generating questions... This may take a moment."):
-                        # First, generate a context paragraph for the AI to work from
-                        context_prompt = f"Write a detailed, informative paragraph about the topic '{topic_name}' within the field of '{tech_topic}'."
-                        context_response = model.generate_content(
-                            context_prompt)
-                        context_text = context_response.text
-
-                        # Now, generate questions from that context
-                        questions, options, correct_answers = generate_questions(
-                            context_text, num_questions_topic, question_type_topic)
-
-                        if questions and correct_answers:
-                            # Save the newly generated question bank
-                            question_bank_id = save_question_bank(
-                                tech_topic,
-                                [topic_name],
-                                '\n'.join(questions),
-                                difficulty_topic,
-                                '\n'.join(correct_answers),
-                                question_type_topic,
-                                '|||'.join(['###'.join(opt)
-                                           for opt in options]),
-                                trainer_username
-                            )
-                            if question_bank_id:
-                                st.success(
-                                    f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
-                                with st.expander("Review Generated Questions & Answers"):
-                                    for i, q in enumerate(questions):
-                                        st.write(f"**Q{i+1}:** {q}")
-                                        if options and options[i]:
-                                            st.write(
-                                                f"**Options:** {', '.join(options[i])}")
-                                        st.success(
-                                            f"**Correct Answer:** {correct_answers[i]}")
-                                        st.write("---")
-                            else:
-                                st.error(
-                                    "Failed to save the question bank to the database.")
-                        else:
-                            st.error(
-                                "The AI could not generate valid questions for this topic. Please try again.")
+            if st.button("Generate Question Bank"):
+                content = curriculum_map.get(selected_tech)
+                if content:
+                    questions, options, correct_answers = generate_questions(
+                        content, num_questions, question_type)
+                    question_bank_id = save_question_bank(
+                        selected_tech, [], '\n'.join(questions), difficulty,
+                        '\n'.join(correct_answers), question_type,
+                        '|||'.join(['###'.join(opt) for opt in options]),
+                        trainer_username
+                    )
+                    if question_bank_id:
+                        st.success(
+                            f"Question Bank generated successfully! ID: {question_bank_id}")
+                    else:
+                        st.error("Failed to save question bank.")
                 else:
-                    st.warning(
-                        "Please provide both a Technology and a Topic name.")
-
-        # --- TAB 2: GENERATE FROM UPLOADED DOCUMENT ---
-        with tab_doc:
-            st.info(
-                "Upload any supported document and the AI will generate questions based on its content.")
-            tech_doc = st.text_input(
-                "Enter Technology Name for this Question Bank", key="tech_doc")
-
-            uploaded_file = st.file_uploader(
-                "Upload a document",
-                type=['pdf', 'docx', 'txt', 'pptx', 'csv',
-                      'json'],  # Accepts all supported types
-                key="doc_uploader"
-            )
-
-            num_questions_doc = st.number_input(
-                "Number of Questions", min_value=1, value=5, key="num_doc")
-            question_type_doc = st.selectbox("Question Type", [
-                                             "multiple-choice", "subjective", "fill-in-the-blank"], key="type_doc")
-            difficulty_doc = st.selectbox(
-                "Difficulty", ["Easy", "Medium", "Hard"], key="diff_doc")
-
-            if st.button("Generate & Save Question Bank", key="btn_doc", use_container_width=True):
-                if tech_doc and uploaded_file:
-                    with st.spinner("Extracting text and generating questions..."):
-                        content = extract_text_from_file(uploaded_file)
-                        if content:
-                            questions, options, correct_answers = generate_questions(
-                                content, num_questions_doc, question_type_doc)
-                            if questions:
-                                question_bank_id = save_question_bank(
-                                    tech_doc,
-                                    [uploaded_file.name],
-                                    '\n'.join(questions),
-                                    difficulty_doc,
-                                    '\n'.join(correct_answers),
-                                    question_type_doc,
-                                    '|||'.join(['###'.join(opt)
-                                               for opt in options]),
-                                    trainer_username
-                                )
-                                if question_bank_id:
-                                    st.success(
-                                        f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
-                                else:
-                                    st.error(
-                                        "Failed to save the question bank.")
-                            else:
-                                st.error(
-                                    "The AI could not generate valid questions from the document.")
-                        # Error message is handled inside extract_text_from_file
-                else:
-                    st.warning(
-                        "Please provide a Technology name and upload a document.")
-
-        # --- TAB 3: GENERATE FROM PASTED TEXT ---
-        with tab_prompt:
-            st.info(
-                "Paste any block of text (e.g., an article, notes, or a prompt) to generate questions.")
-            tech_prompt = st.text_input(
-                "Enter Technology Name for this Question Bank", key="tech_prompt")
-            text_content = st.text_area(
-                "Paste the content here", height=250, key="prompt_text")
-            num_questions_prompt = st.number_input(
-                "Number of Questions", min_value=1, value=5, key="num_prompt")
-            question_type_prompt = st.selectbox("Question Type", [
-                                                "multiple-choice", "subjective", "fill-in-the-blank"], key="type_prompt")
-            difficulty_prompt = st.selectbox(
-                "Difficulty", ["Easy", "Medium", "Hard"], key="diff_prompt")
-
-            if st.button("Generate & Save Question Bank", key="btn_prompt", use_container_width=True):
-                if tech_prompt and text_content:
-                    with st.spinner("AI is generating questions..."):
-                        questions, options, correct_answers = generate_questions(
-                            text_content, num_questions_prompt, question_type_prompt)
-                        if questions:
-                            question_bank_id = save_question_bank(
-                                tech_prompt,
-                                ["Pasted Text"],
-                                '\n'.join(questions),
-                                difficulty_prompt,
-                                '\n'.join(correct_answers),
-                                question_type_prompt,
-                                '|||'.join(['###'.join(opt)
-                                           for opt in options]),
-                                trainer_username
-                            )
-                            if question_bank_id:
-                                st.success(
-                                    f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
-                            else:
-                                st.error("Failed to save the question bank.")
-                        else:
-                            st.error(
-                                "The AI could not generate valid questions from the provided text.")
-                else:
-                    st.warning(
-                        "Please provide a Technology name and paste some content.")
+                    st.error("Failed to retrieve curriculum content.")
 
     # --- View Questions Page (Modified) ---
     elif selected == "View Questions":
@@ -335,33 +196,26 @@ def trainer_dashboard():
     # In trainer_dashboard(), find the "Assign Learning Plan" block and update the button logic:
 
     elif selected == "Assign Learning Plan":
-        st.subheader("Assign Learning Plan to Your employees 🧑‍🏫")
+        st.subheader("Assign Learning Plan to Your Employees 🧑‍🏫")
         assigned_employees = get_assigned_employees(trainer_username)
         question_banks = get_trainer_question_banks(trainer_username)
 
         if not assigned_employees:
-            st.warning(
-                "You have no employees assigned. Please assign them from the 'Assign employees' tab.")
+            st.warning("You have no employees assigned. Please assign them from the 'Assign Employees' tab.")
         elif not question_banks:
             st.warning("You have no question banks. Please create one first.")
         else:
             employee_options = [emp['username'] for emp in assigned_employees]
-            selected_employee = st.selectbox(
-                "Select employee", options=employee_options)
+            selected_employee = st.selectbox("Select Employee", options=employee_options)
 
-            qb_options = {str(
-                qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
-            selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(
-                qb_options.keys()), format_func=lambda x: qb_options[x])
+            qb_options = {str(qb['_id']): f"{qb['technology']} - {qb['difficulty']}" for qb in question_banks}
+            selected_qb_id = st.selectbox("Select Question Bank to Assign", options=list(qb_options.keys()), format_func=lambda x: qb_options[x])
 
             if st.button("Assign Plan"):
                 # --- THIS IS THE CORRECTED FUNCTION CALL ---
-                plan_id = create_learning_plan(
-                    ObjectId(selected_qb_id), selected_employee, trainer_username)
-
+                plan_id = create_learning_plan(ObjectId(selected_qb_id), selected_employee, trainer_username)
                 if plan_id:
-                    st.success(
-                        f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_employee}!")
+                    st.success(f"Learning plan '{qb_options[selected_qb_id]}' assigned to {selected_employee}!")
                     send_notification(
                         recipient_role="employee",
                         message=f"New plan '{qb_options[selected_qb_id]}' was assigned by {trainer_username}.",
@@ -558,41 +412,26 @@ def trainer_dashboard():
                             mime='text/csv'
                         )
 
-    # In trainer_dashboard()
+    elif selected == "Employee Performance":
+        st.subheader("Employee Performance 📈")
+        employees = get_all_users()
 
-    # In your trainer_dashboard function, replace the entire performance block with this:
-
-    # Consider renaming this to "Student Performance" in your option_menu for consistency
-    elif selected == "employee Performance":
-        st.subheader("Student Performance 📈")
-
-        # --- THIS IS THE FIX ---
-        # This line now correctly fetches ONLY the students assigned to the logged-in trainer.
-        assigned_students = get_assigned_employees(trainer_username)
-
-        if not assigned_students:
-            st.info(
-                "You have not assigned any students yet. Use the 'Assign Students' tab to get started.")
-        else:
-            # Create a list of usernames for the dropdown menu
-            student_options = [student['username']
-                               for student in assigned_students]
-
-            selected_student = st.selectbox(
-                "Select a Student to View Their Performance",
-                options=student_options,
-                key="student_performance_select"
+        if employees:
+            selected_employee = st.selectbox(
+                "Select Employee",
+                options=[employee['username'] for employee in employees],
+                key="employee_performance_select"
             )
 
-            if selected_student:
-                # Fetch assessment results for the selected student
-                assessment_results = get_assessment_results(selected_student)
-
+            if selected_employee:
+                # Fetch assessment results for the selected employee
+                assessment_results = get_assessment_results(selected_employee)
                 if assessment_results:
                     # Prepare data for the table
                     performance_data = []
                     for result in assessment_results:
                         performance_data.append({
+                            # Convert ObjectId to string
                             'Question Bank ID': str(result['question_bank_id']),
                             'Score': result['score'],
                             'Completed At': result['completed_at']
@@ -602,7 +441,7 @@ def trainer_dashboard():
                     performance_df = pd.DataFrame(performance_data)
 
                     # Display summary metrics
-                    st.subheader(f"Summary Statistics for {selected_student}")
+                    st.subheader(f"Summary Statistics for {selected_employee}")
                     total_assessments = len(performance_df)
                     avg_score = performance_df['Score'].mean(
                     ) if total_assessments > 0 else 0
@@ -618,9 +457,9 @@ def trainer_dashboard():
                         st.metric("Best Score", best_score)
 
                     # Display the performance data in a styled table
-                    st.write(f"Performance Data for {selected_student}:")
+                    st.write(f"Performance Data for {selected_employee}:")
                     st.dataframe(performance_df.style.highlight_max(
-                        axis=0, subset=['Score']))
+                        axis=0))  # Highlight max scores
 
                     # Convert 'Completed At' column to datetime for sorting
                     performance_df['Completed At'] = pd.to_datetime(
@@ -633,12 +472,12 @@ def trainer_dashboard():
                     # Line chart for scores over time
                     fig_line = px.line(performance_df, x='Completed At', y='Score',
                                        title='Score Over Time', markers=True)
-                    st.plotly_chart(fig_line, use_container_width=True)
+                    st.plotly_chart(fig_line)
 
                     # Bar chart for scores by question bank
                     fig_bar = px.bar(performance_df, x='Question Bank ID', y='Score',
                                      title='Scores by Question Bank', text='Score')
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                    st.plotly_chart(fig_bar)
 
                     # Convert figures to HTML format for download
                     fig_line_html = fig_line.to_html(full_html=False)
@@ -646,19 +485,20 @@ def trainer_dashboard():
 
                     # Provide download buttons
                     st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
-                                       file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
+                                       file_name=f"{selected_employee}_performance_over_time.html", mime="text/html")
 
                     st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
-                                       file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
+                                       file_name=f"{selected_employee}_score_by_question_bank.html", mime="text/html")
 
                     st.download_button(label="Download Performance Data as CSV",
-                                       data=performance_df.to_csv(
-                                           index=False).encode('utf-8'),
-                                       file_name=f"{selected_student}_performance.csv", mime="text/csv")
+                                       data=performance_df.to_csv(index=False),
+                                       file_name=f"{selected_employee}_performance.csv", mime="text/csv")
 
                 else:
-                    st.info(
-                        f"No assessment results available for {selected_student}.")
+                    st.info("No assessment results available for this employee.")
+        else:
+            st.info("No employees available.")
+
     # Display content based on the selected option
     if selected == "Generate Questions":
         # Horizontal menu for question generation methods
@@ -939,18 +779,18 @@ def trainer_dashboard():
         st.sidebar.write("No notifications available.")
 
 
+# Download NLTK data
 try:
     nltk.data.find('sentiment/vader_lexicon.zip')
 except LookupError:
-    # This will print to your Render logs but not to the app's screen
-    print("NLTK 'vader_lexicon' not found. Downloading...")
+    st.info("Downloading NLTK 'vader_lexicon' for sentiment analysis...")
     nltk.download('vader_lexicon')
-    print("Download complete.")
+    st.success("Download complete.")
 # Load .env file (if used locally for development)
 # from dotenv import load_dotenv
 # load_dotenv()
 
-# Load the Google API key from environment variables
+# Set Google API Key from environment variable
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     st.error("Google API key not found. Please set the GOOGLE_API_KEY environment variable.")
@@ -970,7 +810,7 @@ def save_question_bank(technology, topics, questions, difficulty, correct_answer
         return None
     try:
         qb_doc = {
-            "trainer_username": trainer_username,  # <-- Saves the trainer's name
+            "trainer_username": trainer_username, # <-- Saves the trainer's name
             "technology": technology,
             "topics": topics,
             "questions": questions,
@@ -996,17 +836,16 @@ def save_question_bank(technology, topics, questions, difficulty, correct_answer
 
 
 @st.cache_resource
-# MongoDB connection
 def create_connection():
+    """Create and cache a MongoDB database connection."""
+    mongo_uri = os.getenv("MONGO_URI")
+    if not mongo_uri:
+        st.error(
+            "MongoDB URI not found. Please set the MONGO_URI environment variable.")
+        return None
     try:
-        # Replace with your MongoDB connection string from environment variable or fallback
-        # Load the MongoDB URI from environment variables
-        mongo_uri = os.getenv("MONGO_URI")
-        if not mongo_uri:
-            st.error("MongoDB URI not found. Please set the MONGO_URI environment variable.")
-            return None
         client = MongoClient(mongo_uri)
-        db = client["final_mongodb"]  # Your database name
+        db = client["final_mongodb"]
         return db
     except ConnectionFailure as e:
         st.error(f"Error connecting to MongoDB: {e}")
@@ -1022,7 +861,7 @@ def get_unassigned_employees():
         return []
     try:
         unassigned = db.users.find({
-            "role": "employee",
+            "role": "Employee",
             "assigned_trainer": None
         })
         return list(unassigned)
@@ -1052,7 +891,7 @@ def get_assigned_employees(trainer_username):
         return []
     try:
         employees = db.users.find({
-            "role": "employee",
+            "role": "Employee",
             "assigned_trainer": trainer_username
         })
         return list(employees)
@@ -1092,50 +931,38 @@ def format_timestamp(timestamp_str):
 
 
 # Utility functions
-# In your stt.py file, replace the old extract_text_from_file function with this:
+def extract_text_from_file(file):
+    file_extension = os.path.splitext(file.name)[1].lower()
+    text = ""
 
-def extract_text_from_file(uploaded_file):
-    """
-    Extracts text content from various file types (.pdf, .docx, .txt, .pptx, .csv, .json).
-    Returns the text content as a string or None if the file type is unsupported.
-    """
     try:
-        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
-        text = ""
-
         if file_extension == '.pdf':
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            pdf_reader = PyPDF2.PdfReader(file)
             for page in pdf_reader.pages:
                 text += page.extract_text() + "\n"
         elif file_extension == '.docx':
-            doc = docx.Document(uploaded_file)
+            doc = docx.Document(file)
             text = "\n".join([para.text for para in doc.paragraphs])
-        elif file_extension == '.pptx':
-            prs = Presentation(uploaded_file)
+        elif file_extension == '.txt':
+            text = file.getvalue().decode('utf-8')
+        elif file_extension in ['.ppt', '.pptx']:
+            prs = Presentation(file)
             for slide in prs.slides:
                 for shape in slide.shapes:
                     if hasattr(shape, 'text'):
                         text += shape.text + "\n"
-        elif file_extension == '.txt':
-            text = uploaded_file.getvalue().decode('utf-8')
         elif file_extension == '.csv':
-            # Reads the entire CSV as a string
-            df = pd.read_csv(uploaded_file)
-            text = df.to_string(index=False)
-        elif file_extension == '.json':
-            # Reads the JSON and pretty-prints it as a string
-            json_data = json.load(uploaded_file)
-            text = json.dumps(json_data, indent=2)
+            csv_data = pd.read_csv(file)
+            text = csv_data.to_string(index=False)
         else:
-            st.warning(
-                f"Unsupported file type: '{file_extension}'. Only .pdf, .docx, .pptx, .txt, .csv, and .json are supported.")
-            return None
-
-        return clean_text(text)
-
+            # For other file types, attempt to read as text
+            try:
+                text = file.getvalue().decode('utf-8')
+            except UnicodeDecodeError:
+                raise ValueError(
+                    f"Unable to extract text from {file_extension} file.")
     except Exception as e:
-        st.error(f"Error processing the file '{uploaded_file.name}': {e}")
-        return None
+        raise ValueError(f"Error processing {file_extension} file: {str(e)}")
 
     # Clean the extracted text
     cleaned_text = clean_text(text)
@@ -1175,177 +1002,64 @@ def create_new_question_bank(technology, difficulty, questions):
         return None
 
 
-# In your stt.py file, replace the entire generate_questions function with this one:
-
-
 def generate_questions(text, num_questions=5, question_type="multiple-choice"):
-    # Add randomization to ensure unique questions each time
-    random_seed = random.randint(1000, 9999)
-    timestamp = int(time.time()) % 10000
-
     if question_type == "multiple-choice":
-        # --- ENHANCED PROMPT WITH UNIQUENESS FACTORS ---
-        prompt = f"""Generate exactly {num_questions} unique multiple-choice questions based on the following text. 
-
-        Important: Create completely new and different questions each time. Focus on different aspects, concepts, and details from the text.
-
-        Text to analyze:
-        {text}
-
-        Requirements:
-        - Generate exactly {num_questions} questions
-        - Each question should test different aspects of the content
-        - Provide 4 options (A, B, C, D) for each question
-        - Only ONE option should be correct
-        - Include the correct answer letter after each question
-
-        Format (strictly follow this format):
-        
-        Q1: [Question about specific concept/detail]
-        A) [Option 1]
-        B) [Option 2] 
-        C) [Option 3]
-        D) [Option 4]
-        Answer: [Correct letter]
-
-        Q2: [Question about different concept/detail]
-        A) [Option 1]
-        B) [Option 2]
-        C) [Option 3] 
-        D) [Option 4]
-        Answer: [Correct letter]
-
-        Generation ID: {random_seed}-{timestamp}
-        """
+        prompt = f"Generate {num_questions} multiple-choice questions based on the following text:\n\n{text}\n\nProvide the questions and options in the following format:\n\nQ1: [Question]\nA) [Option 1]\nB) [Option 2]\nC) [Option 3]\nD) [Option 4]\n\nQ2: [Question]\nA) [Option 1]\nB) [Option 2]\nC) [Option 3]\nD) [Option 4]\n\n..."
     elif question_type == "subjective":
-        prompt = f"""Generate exactly {num_questions} unique subjective questions based on the following text. 
-        
-        Create diverse questions that explore different aspects of the content:
-        
-        {text}
-        
-        Generation ID: {random_seed}-{timestamp}
-        """
+        prompt = f"Generate {num_questions} subjective questions based on the following text:\n\n{text}\n\nProvide the questions in the following format:\n\nQ1: [Question]\n\nQ2: [Question]\n\n..."
     elif question_type == "fill-in-the-blank":
-        prompt = f"""Generate exactly {num_questions} unique fill-in-the-blank questions based on the following text. 
-        
-        Create questions that test different key terms and concepts:
-        
-        {text}
-        
-        Provide each answer on a new line starting with 'A:'.
-        
-        Generation ID: {random_seed}-{timestamp}
-        """
+        prompt = f"Generate {num_questions} fill-in-the-blank questions based on the following text:\n\n{text}\n\nProvide the questions and correct answers in the following format:\n\nQ1: [Question]\nA: [Correct Answer]\n\nQ2: [Question]\nA: [Correct Answer]\n\n..."
     else:
         raise ValueError("Invalid question type")
 
-    # Configure model for more randomness (if using Google Gemini)
-    generation_config = {
-        'temperature': 0.9,  # Higher temperature for more randomness
-        'top_p': 0.8,
-        'top_k': 40,
-        'max_output_tokens': 2048,
-    }
-
-    try:
-        # Generate with randomness config
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config
-        )
-        generated_text = response.text
-    except:
-        # Fallback if generation_config is not supported
-        response = model.generate_content(prompt)
-        generated_text = response.text
-
-    print(
-        f"Generating {num_questions} {question_type} questions... ID: {random_seed}-{timestamp}")
+    response = model.generate_content(prompt)
+    generated_text = response.text
 
     questions = []
     options = []
     correct_answers = []
 
-    # Split the entire text by the question marker "Q" followed by a number and colon.
-    question_blocks = re.split(r'Q\d+:', generated_text)[1:]
+    lines = [line.strip()
+             for line in generated_text.split('\n') if line.strip()]
 
-    for i, block in enumerate(question_blocks):
-        if not block.strip() or i >= num_questions:  # Ensure we don't exceed requested number
-            continue
-
-        lines = [line.strip()
-                 for line in block.strip().split('\n') if line.strip()]
-
-        if not lines:
-            continue
-
-        # --- ROBUST PARSING LOGIC ---
-        question_text = lines[0]
-        # Clean up question text
-        question_text = question_text.replace('Generation ID:', '').strip()
-        if question_text:
-            questions.append(question_text)
-
+    i = 0
+    while i < len(lines):
+        if lines[i].startswith('Q'):
+            question = lines[i].split(': ', 1)[1]
+            questions.append(question)
             if question_type == "multiple-choice":
-                current_options = []
-                answer_line = ""
-
-                for line in lines[1:]:
-                    if re.match(r'^[A-D]\)', line):  # Matches A), B), C), D)
-                        option_text = line.split(
-                            ') ', 1)[1] if ') ' in line else line[2:].strip()
-                        current_options.append(option_text)
-                    elif line.lower().startswith('answer:'):
-                        answer_line = line
-                    elif line.startswith('Generation ID:'):
-                        break  # Stop parsing when we hit the generation ID
-
-                options.append(current_options)
-
-                # --- Store the correct answer LETTER ---
-                if answer_line and current_options:
-                    try:
-                        correct_letter = answer_line.split(
-                            ':')[1].strip().upper()
-                        # Validate that it's a valid option letter
-                        if correct_letter in ['A', 'B', 'C', 'D'] and ord(correct_letter) - ord('A') < len(current_options):
-                            correct_answers.append(correct_letter)
-                        else:
-                            print(
-                                f"Warning: Invalid answer letter '{correct_letter}' for question: {question_text}")
-                            correct_answers.append('A')  # Default fallback
-                    except Exception as e:
-                        print(
-                            f"Error parsing answer for question '{question_text}': {e}")
-                        correct_answers.append('A')  # Default fallback
-                else:
-                    print(
-                        f"Warning: No answer found for question: {question_text}")
-                    correct_answers.append('A')  # Default fallback
-
+                options_list = []
+                correct_answer = None
+                # Look for options immediately following the question
+                for j in range(i + 1, len(lines)):
+                    if lines[j].startswith(('A)', 'B)', 'C)', 'D)')):
+                        option = lines[j].split(') ', 1)[1]
+                        options_list.append(option)
+                        # Assuming A is always the correct answer for simplicity in parsing
+                        if lines[j].startswith('A)'):
+                            correct_answer = option
+                    else:
+                        break  # Stop if a line doesn't start with an option letter
+                options.append(options_list)
+                correct_answers.append(correct_answer)
+                i = j  # Move index to the line after the last option processed
             elif question_type == "fill-in-the-blank":
-                options.append([])  # No options for fill-in-the-blank
-                if len(lines) > 1 and lines[1].startswith('A:'):
-                    correct_answers.append(lines[1].split('A:', 1)[1].strip())
+                if i+1 < len(lines) and lines[i+1].startswith('A:'):
+                    options.append([lines[i+1].split(': ', 1)[1]])
+                    correct_answers.append(lines[i+1].split(': ', 1)[1])
+                    i += 2
                 else:
+                    options.append([""])
                     correct_answers.append("")
-            else:  # Subjective
+                    i += 1
+            else:  # subjective
                 options.append([])
-                # Subjective questions have no single "correct" answer
                 correct_answers.append("")
+                i += 1
+        else:
+            i += 1
 
-    # Ensure we have the exact number of questions requested
-    if len(questions) < num_questions:
-        print(
-            f"Warning: Only generated {len(questions)} questions instead of {num_questions}")
-    elif len(questions) > num_questions:
-        questions = questions[:num_questions]
-        options = options[:num_questions]
-        correct_answers = correct_answers[:num_questions]
-
-    print(f"Successfully generated {len(questions)} questions")
-    return questions, options, correct_answers
+    return questions[:num_questions], options[:num_questions], correct_answers[:num_questions]
 
 # Removed ensure_table_exists as MongoDB handles collection creation implicitly
 
@@ -1428,13 +1142,13 @@ def register_user(email, username, password, role):
         "role": role,
     }
     # NEW: Set assigned_trainer to None for new employees
-    if role == "employee":
+    if role == "Employee":
         user_data["assigned_trainer"] = None
 
     try:
         db.users.insert_one(user_data)
         # NEW: Notify trainers of new employee registration
-        if role == "employee":
+        if role == "Employee":
             send_notification(
                 recipient_role="trainer",
                 message=f"New employee '{username}' has registered and needs assignment.",
@@ -1467,11 +1181,10 @@ def get_system_stats():
 # NEW: Fetches learning plans specifically for the logged-in user.
 
 
-# In your stt.py file, replace this entire function
-
 def get_user_learning_plans(username):
     """
-    Retrieves all learning plans for a user, including the trainer's username.
+    Retrieves all learning plans assigned to a specific user by joining
+    learning_plans and question_banks collections.
     """
     db = create_connection()
     if db is None:
@@ -1487,12 +1200,11 @@ def get_user_learning_plans(username):
             }},
             {"$unwind": "$qb_details"},
             {"$project": {
-                "_id": 1,
+                "_id": 1,  # The learning plan's unique ID
                 "status": 1,
                 "start_date": 1,
                 "end_date": 1,
                 "estimated_time": 1,
-                "trainer_username": 1,  # <-- CRITICAL FIX: Add this line
                 "question_bank_id": "$qb_details._id",
                 "technology": "$qb_details.technology",
                 "difficulty": "$qb_details.difficulty"
@@ -1567,24 +1279,19 @@ def upload_curriculum(technology, topics, content, trainer_username):
         return False
 
 
-# In your stt.py file, replace this entire function
-
-def get_curriculum_text(technology, trainer_username):
-    """Fetches the curriculum content for a specific technology from a specific trainer."""
+def get_curriculum_text(technology):
     db = create_connection()
     if db is None:
         return None
+
     try:
-        # Find the curriculum that matches both the technology AND the trainer
         result = db.curriculum.find_one(
-            {"technology": technology, "trainer_username": trainer_username},
-            # <-- CRITICAL FIX: Fetch 'content', not 'topics'
-            {"content": 1, "_id": 0}
-        )
+            {"technology": technology}, {"topics": 1, "_id": 0})
         if result:
-            return result.get('content')
+            return result.get('topics')
         else:
-            # This case now correctly means no content was found for that specific trainer
+            st.error(
+                f"No curriculum content found for technology: {technology}")
             return None
     except OperationFailure as err:
         st.error(f"Database error: {err}")
@@ -1693,7 +1400,7 @@ def get_all_question_banks():
         st.error(f"Database error: {err}")
         return None
 
-# employee Functions
+# Employee Functions
 
 
 # def get_learning_plan(username):
@@ -1912,7 +1619,7 @@ def admin_dashboard():
             options=["System Stats",
                      "User  Management",
                      "Reports",
-                     "employee Performance"],  # required
+                     "Employee Performance"],  # required
             icons=["bar-chart", "people", "file-earmark-text",
                    "person-check"],  # optional
             menu_icon="cast",  # optional
@@ -2010,7 +1717,7 @@ def admin_dashboard():
                         with cols[1]:  # Role selection column
                             new_role = st.selectbox(
                                 f"New Role for {user.get('username')}",
-                                ["None", "Administrator", "Trainer", "employee"],
+                                ["None", "Administrator", "Trainer", "Employee"],
                                 key=f"new_role_{user.get('username')}",
                                 label_visibility="collapsed"  # Hides the label
                             )
@@ -2047,7 +1754,7 @@ def admin_dashboard():
         report_type = st.selectbox("Select Report Type",
                                    ["User Activity", "Question Bank Usage",
                                     "Feedback Summary", "Sentiment Analysis",
-                                    "employee Performance"])
+                                    "Employee Performance"])
 
         if st.button("Generate Report"):
             if report_type == "User Activity":
@@ -2058,16 +1765,16 @@ def admin_dashboard():
                 feedback_summary_report()
             elif report_type == "Sentiment Analysis":
                 sentiment_analysis_report()
-            elif report_type == "employee Performance":
+            elif report_type == "Employee Performance":
                 employee_performance_report()
 
-    elif selected_tab == "employee Performance":
-        st.subheader("employee Performance 🎯")
+    elif selected_tab == "Employee Performance":
+        st.subheader("Employee Performance 🎯")
         employees = get_all_users()
 
         if employees:
             selected_employee = st.selectbox(
-                "Select employee",
+                "Select Employee",
                 options=[employee['username'] for employee in employees],
                 key="employee_performance_select"
             )
@@ -2534,64 +2241,64 @@ def create_new_question_bank(technology, difficulty, questions):
         return None
 
 
-# def generate_questions(text, num_questions=5, question_type="multiple-choice"):
-#     if question_type == "multiple-choice":
-#         prompt = f"Generate {num_questions} multiple-choice questions based on the following text:\n\n{text}\n\nProvide the questions and options in the following format:\n\nQ1: [Question]\nA) [Option 1]\nB) [Option 2]\nC) [Option 3]\nD) [Option 4]\n\nQ2: [Question]\nA) [Option 1]\nB) [Option 2]\nC) [Option 3]\nD) [Option 4]\n\n..."
-#     elif question_type == "subjective":
-#         prompt = f"Generate {num_questions} subjective questions based on the following text:\n\n{text}\n\nProvide the questions in the following format:\n\nQ1: [Question]\n\nQ2: [Question]\n\n..."
-#     elif question_type == "fill-in-the-blank":
-#         prompt = f"Generate {num_questions} fill-in-the-blank questions based on the following text:\n\n{text}\n\nProvide the questions and correct answers in the following format:\n\nQ1: [Question]\nA: [Correct Answer]\n\nQ2: [Question]\nA: [Correct Answer]\n\n..."
-#     else:
-#         raise ValueError("Invalid question type")
+def generate_questions(text, num_questions=5, question_type="multiple-choice"):
+    if question_type == "multiple-choice":
+        prompt = f"Generate {num_questions} multiple-choice questions based on the following text:\n\n{text}\n\nProvide the questions and options in the following format:\n\nQ1: [Question]\nA) [Option 1]\nB) [Option 2]\nC) [Option 3]\nD) [Option 4]\n\nQ2: [Question]\nA) [Option 1]\nB) [Option 2]\nC) [Option 3]\nD) [Option 4]\n\n..."
+    elif question_type == "subjective":
+        prompt = f"Generate {num_questions} subjective questions based on the following text:\n\n{text}\n\nProvide the questions in the following format:\n\nQ1: [Question]\n\nQ2: [Question]\n\n..."
+    elif question_type == "fill-in-the-blank":
+        prompt = f"Generate {num_questions} fill-in-the-blank questions based on the following text:\n\n{text}\n\nProvide the questions and correct answers in the following format:\n\nQ1: [Question]\nA: [Correct Answer]\n\nQ2: [Question]\nA: [Correct Answer]\n\n..."
+    else:
+        raise ValueError("Invalid question type")
 
-#     response = model.generate_content(prompt)
-#     generated_text = response.text
+    response = model.generate_content(prompt)
+    generated_text = response.text
 
-#     questions = []
-#     options = []
-#     correct_answers = []
+    questions = []
+    options = []
+    correct_answers = []
 
-#     lines = [line.strip()
-#              for line in generated_text.split('\n') if line.strip()]
+    lines = [line.strip()
+             for line in generated_text.split('\n') if line.strip()]
 
-#     i = 0
-#     while i < len(lines):
-#         if lines[i].startswith('Q'):
-#             question = lines[i].split(': ', 1)[1]
-#             questions.append(question)
-#             if question_type == "multiple-choice":
-#                 options_list = []
-#                 correct_answer = None
-#                 # Look for options immediately following the question
-#                 for j in range(i + 1, len(lines)):
-#                     if lines[j].startswith(('A)', 'B)', 'C)', 'D)')):
-#                         option = lines[j].split(') ', 1)[1]
-#                         options_list.append(option)
-#                         # Assuming A is always the correct answer for simplicity in parsing
-#                         if lines[j].startswith('A)'):
-#                             correct_answer = option
-#                     else:
-#                         break  # Stop if a line doesn't start with an option letter
-#                 options.append(options_list)
-#                 correct_answers.append(correct_answer)
-#                 i = j  # Move index to the line after the last option processed
-#             elif question_type == "fill-in-the-blank":
-#                 if i+1 < len(lines) and lines[i+1].startswith('A:'):
-#                     options.append([lines[i+1].split(': ', 1)[1]])
-#                     correct_answers.append(lines[i+1].split(': ', 1)[1])
-#                     i += 2
-#                 else:
-#                     options.append([""])
-#                     correct_answers.append("")
-#                     i += 1
-#             else:  # subjective
-#                 options.append([])
-#                 correct_answers.append("")
-#                 i += 1
-#         else:
-#             i += 1
+    i = 0
+    while i < len(lines):
+        if lines[i].startswith('Q'):
+            question = lines[i].split(': ', 1)[1]
+            questions.append(question)
+            if question_type == "multiple-choice":
+                options_list = []
+                correct_answer = None
+                # Look for options immediately following the question
+                for j in range(i + 1, len(lines)):
+                    if lines[j].startswith(('A)', 'B)', 'C)', 'D)')):
+                        option = lines[j].split(') ', 1)[1]
+                        options_list.append(option)
+                        # Assuming A is always the correct answer for simplicity in parsing
+                        if lines[j].startswith('A)'):
+                            correct_answer = option
+                    else:
+                        break  # Stop if a line doesn't start with an option letter
+                options.append(options_list)
+                correct_answers.append(correct_answer)
+                i = j  # Move index to the line after the last option processed
+            elif question_type == "fill-in-the-blank":
+                if i+1 < len(lines) and lines[i+1].startswith('A:'):
+                    options.append([lines[i+1].split(': ', 1)[1]])
+                    correct_answers.append(lines[i+1].split(': ', 1)[1])
+                    i += 2
+                else:
+                    options.append([""])
+                    correct_answers.append("")
+                    i += 1
+            else:  # subjective
+                options.append([])
+                correct_answers.append("")
+                i += 1
+        else:
+            i += 1
 
-#     return questions[:num_questions], options[:num_questions], correct_answers[:num_questions]
+    return questions[:num_questions], options[:num_questions], correct_answers[:num_questions]
 
 # Removed ensure_table_exists as MongoDB handles collection creation implicitly
 
@@ -2745,10 +2452,10 @@ def upload_curriculum(technology, topics, content, trainer_username):
     db = create_connection()
     if db is None:
         return False
-
+        
     try:
         curriculum_doc = {
-            "trainer_username": trainer_username,  # <-- Saves the trainer's name
+            "trainer_username": trainer_username, # <-- Saves the trainer's name
             "technology": technology,
             "topics": topics,
             "content": content,
@@ -2766,23 +2473,24 @@ def upload_curriculum(technology, topics, content, trainer_username):
         return False
 
 
-# def get_curriculum_text(technology):
-#     db = create_connection()
-#     if db is None:
-#         return None
+def get_curriculum_text(technology):
+    db = create_connection()
+    if db is None:
+        return None
 
-#     try:
-#         result = db.curriculum.find_one(
-#             {"technology": technology}, {"topics": 1, "_id": 0})
-#         if result:
-#             return result.get('topics')
-#         else:
-#             st.error(
-#                 f"No curriculum content found for technology: {technology}")
-#             return None
-#     except OperationFailure as err:
-#         st.error(f"Database error: {err}")
-#         return None
+    try:
+        result = db.curriculum.find_one(
+            {"technology": technology}, {"topics": 1, "_id": 0})
+        if result:
+            return result.get('topics')
+        else:
+            st.error(
+                f"No curriculum content found for technology: {technology}")
+            return None
+    except OperationFailure as err:
+        st.error(f"Database error: {err}")
+        return None
+
 
 
 def get_topics_for_technology(technology):
@@ -2836,7 +2544,7 @@ def get_all_question_banks():
         st.error(f"Database error: {err}")
         return None
 
-# employee Functions
+# Employee Functions
 
 
 def get_learning_plan(username):
@@ -3055,7 +2763,7 @@ def admin_dashboard():
             options=["System Stats",
                      "User  Management",
                      "Reports",
-                     "employee Performance"],  # required
+                     "Employee Performance"],  # required
             icons=["bar-chart", "people", "file-earmark-text",
                    "person-check"],  # optional
             menu_icon="cast",  # optional
@@ -3153,7 +2861,7 @@ def admin_dashboard():
                         with cols[1]:  # Role selection column
                             new_role = st.selectbox(
                                 f"New Role for {user.get('username')}",
-                                ["None", "Administrator", "Trainer", "employee"],
+                                ["None", "Administrator", "Trainer", "Employee"],
                                 key=f"new_role_{user.get('username')}",
                                 label_visibility="collapsed"  # Hides the label
                             )
@@ -3190,7 +2898,7 @@ def admin_dashboard():
         report_type = st.selectbox("Select Report Type",
                                    ["User Activity", "Question Bank Usage",
                                     "Feedback Summary", "Sentiment Analysis",
-                                    "employee Performance"])
+                                    "Employee Performance"])
 
         if st.button("Generate Report"):
             if report_type == "User Activity":
@@ -3201,16 +2909,16 @@ def admin_dashboard():
                 feedback_summary_report()
             elif report_type == "Sentiment Analysis":
                 sentiment_analysis_report()
-            elif report_type == "employee Performance":
+            elif report_type == "Employee Performance":
                 employee_performance_report()
 
-    elif selected_tab == "employee Performance":
-        st.subheader("employee Performance 🎯")
+    elif selected_tab == "Employee Performance":
+        st.subheader("Employee Performance 🎯")
         employees = get_all_users()
 
         if employees:
             selected_employee = st.selectbox(
-                "Select employee",
+                "Select Employee",
                 options=[employee['username'] for employee in employees],
                 key="employee_performance_select"
             )
@@ -3332,8 +3040,8 @@ def employee_performance_report():
             df = pd.DataFrame(results)
 
             # Create an interactive bar chart using Plotly
-            fig = px.bar(df, x='username', y='avg_score', title='employee Performance',
-                         labels={'username': 'employee',
+            fig = px.bar(df, x='username', y='avg_score', title='Employee Performance',
+                         labels={'username': 'Employee',
                                  'avg_score': 'Average Score'},
                          color='avg_score', color_continuous_scale=px.colors.sequential.Viridis)
 
@@ -3378,7 +3086,7 @@ def user_activity_report():
                 "as": "user_info"
             }},
             {"$unwind": "$user_info"},
-            {"$match": {"user_info.role": "employee"}},
+            {"$match": {"user_info.role": "Employee"}},
             {"$group": {
                 "_id": "$username",
                 "num_assessments": {"$sum": 1},
@@ -4203,7 +3911,7 @@ def employee_dashboard(username):
 
     with st.sidebar:
         selected_tab = option_menu(
-            menu_title="employee Dashboard",
+            menu_title="Employee Dashboard",
             options=["Your Learning Plan", "Prepare from Material", "Take Assessment", "Your Progress",
                      "Discussion Forum", "Resources", "Chatbot", "Feedback"],
             icons=["book", "file-earmark-text", "check-circle", "bar-chart",
@@ -4216,8 +3924,7 @@ def employee_dashboard(username):
         st.subheader("Your Learning Plan 📋")
         learning_plans = get_user_learning_plans(username)
         if not learning_plans:
-            st.info(
-                "You don't have any learning plans assigned yet. Please contact your trainer.")
+            st.info("You don't have any learning plans assigned yet. Please contact your trainer.")
         else:
             st.info(f"You have {len(learning_plans)} learning plan(s).")
             for plan in learning_plans:
@@ -4228,12 +3935,10 @@ def employee_dashboard(username):
                     st.markdown(f"**Assigned On:** {plan['start_date']}")
                     st.markdown(f"**Target End Date:** {plan['end_date']}")
                     estimated_hours = round(plan['estimated_time'] / 60, 1)
-                    st.markdown(
-                        f"**Estimated Time:** ~{estimated_hours} hours")
+                    st.markdown(f"**Estimated Time:** ~{estimated_hours} hours")
 
                     status_options = ["Assigned", "In Progress", "Completed"]
-                    current_status_index = status_options.index(
-                        plan.get('status', 'Assigned'))
+                    current_status_index = status_options.index(plan.get('status', 'Assigned'))
                     new_status = st.selectbox(
                         "Update Your Progress", options=status_options, index=current_status_index,
                         key=f"status_{plan['_id']}"
@@ -4244,10 +3949,9 @@ def employee_dashboard(username):
                             st.rerun()
                         else:
                             st.error("Failed to update status.")
-
+                    
                     st.write("---")
-                    plan_doc_data = generate_personalized_learning_plan_document(
-                        plan['_id'])
+                    plan_doc_data = generate_personalized_learning_plan_document(plan['_id'])
                     if plan_doc_data:
                         st.download_button(
                             label="Download Plan as DOCX",
@@ -4262,113 +3966,35 @@ def employee_dashboard(username):
 
     # In employee_dashboard(), replace the "Prepare from Material" block
 
-    # In employee_dashboard(), replace the "Prepare from Material" block with this:
-
-    # --- Prepare from Material Tab (FIXED) ---
-
     elif selected_tab == "Prepare from Material":
-
         st.subheader("Prepare from Material 📚")
-
+        # This function correctly fetches only the plans assigned to this user
         learning_plans = get_user_learning_plans(username)
-
+        
         if not learning_plans:
-
-            st.info(
-                "No materials are available because no learning plans have been assigned to you.")
-
+            st.info("No materials are available because no learning plans have been assigned to you.")
         else:
-
-            # Create a dictionary to easily look up trainer and other details by technology
-
-            tech_to_plan_map = {plan['technology']: plan for plan in learning_plans}
-
-            user_technologies = sorted(list(tech_to_plan_map.keys()))
-
+            # Create a list of technologies from the user's assigned plans
+            user_technologies = sorted(list(set([plan['technology'] for plan in learning_plans])))
+            
             selected_tech = st.selectbox(
-
                 "Select a Curriculum from Your Learning Plan",
-
                 options=user_technologies
-
             )
 
             if selected_tech:
-
-                # Get the specific plan details for the selected technology
-
-                plan_details = tech_to_plan_map[selected_tech]
-
-                trainer = plan_details.get('trainer_username')
-
-                if trainer:
-
-                    # **THE FIX**: Pass both technology AND trainer to get the correct content
-
-                    curriculum_content = get_curriculum_text(
-                        selected_tech, trainer)
-
-                    if curriculum_content:
-
-                        st.markdown("---")
-
-                        st.subheader("Curriculum Content")
-
-                        st.info(curriculum_content)
-
-                        # --- TRANSLATION FEATURE ADDED ---
-
-                        st.markdown("---")
-
-                        st.subheader("Translate Material")
-
-                        languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish",
-                                     "French", "German", "Chinese", "Japanese", "Korean"]
-
-                        selected_language = st.selectbox(
-                            "Translate to:", languages)
-
-                        if st.button("Translate", key="translate_material"):
-
-                            with st.spinner(f"Translating to {selected_language}..."):
-
-                                try:
-
-                                    max_chunk_size = 4500
-
-                                    text_chunks = [curriculum_content[i:i + max_chunk_size]
-                                                   for i in range(0, len(curriculum_content), max_chunk_size)]
-
-                                    translated_chunks = []
-
-                                    for chunk in text_chunks:
-
-                                        translated_chunks.append(GoogleTranslator(
-                                            source='auto', target=selected_language.lower()).translate(chunk))
-
-                                    full_translated_text = " ".join(
-                                        translated_chunks)
-
-                                    st.subheader(
-                                        f"Translated Content ({selected_language})")
-
-                                    st.success(full_translated_text)
-
-                                except Exception as e:
-
-                                    st.error(f"Translation failed. Error: {e}")
-
-                        # --- END OF FEATURE ---
-
-                    else:
-
-                        st.error(
-                            "Could not retrieve content for the selected curriculum. The assigned trainer may not have uploaded the material yet.")
-
+                # We need a way to get the curriculum content for the selected technology
+                # We will assume a function `get_curriculum_content_by_tech` exists for this
+                curriculum_content = get_curriculum_text(selected_tech) 
+                
+                if curriculum_content:
+                    st.markdown("---")
+                    st.subheader("Curriculum Content")
+                    st.info(curriculum_content)
+                    # (Your translation feature can be added here)
                 else:
+                    st.error("Could not retrieve content for the selected curriculum.")
 
-                    st.error(
-                        "Could not identify the trainer for this learning plan.")
     # --- Interactive Assessment Tab ---
     # In employee_dashboard(), replace the entire "Take Assessment" block with this:
 
@@ -4391,14 +4017,12 @@ def employee_dashboard(username):
                     del st.session_state[key]
 
             learning_plans = get_user_learning_plans(username)
-            available_assessments = [
-                p for p in learning_plans if p.get('status') != 'Completed']
+            available_assessments = [p for p in learning_plans if p.get('status') != 'Completed']
 
             if not available_assessments:
                 st.info("You have no available assessments to take.")
             else:
-                assessment_options = {
-                    p['question_bank_id']: f"{p['technology']} - {p['difficulty']}" for p in available_assessments}
+                assessment_options = {p['question_bank_id']: f"{p['technology']} - {p['difficulty']}" for p in available_assessments}
                 selected_qb_id_str = st.selectbox(
                     "Select an Assessment from Your Learning Plan",
                     options=list(assessment_options.keys()),
@@ -4410,14 +4034,11 @@ def employee_dashboard(username):
                 if selected_qb_id_str:
                     qb_id = ObjectId(selected_qb_id_str)
                     all_qbs = get_all_question_banks()
-                    qb_details = next(
-                        (qb for qb in all_qbs if qb['_id'] == qb_id), None)
+                    qb_details = next((qb for qb in all_qbs if qb['_id'] == qb_id), None)
 
                     if qb_details:
-                        questions = [q for q in qb_details.get(
-                            'questions', '').split('\n') if q.strip()]
-                        # 1.5 minutes per question
-                        time_limit_minutes = len(questions) * 1.5
+                        questions = [q for q in qb_details.get('questions', '').split('\n') if q.strip()]
+                        time_limit_minutes = len(questions) * 1.5  # 1.5 minutes per question
 
                         st.info(f"""
                         **You have selected:** {qb_details['technology']} ({qb_details['difficulty']})
@@ -4426,92 +4047,12 @@ def employee_dashboard(username):
                         """)
 
                         if st.button("Start Assessment", type="primary"):
-                            import random
-
-                            # Get original data
-                            original_questions = questions
-                            original_correct_answers = get_correct_answers(
-                                qb_id)
-                            original_options_text = qb_details.get(
-                                'options', '')
-                            original_options_per_question = [
-                                opt.strip() for opt in original_options_text.split('|||') if opt.strip()]
-
-                            # Create question indices and shuffle them
-                            question_indices = list(
-                                range(len(original_questions)))
-                            random.shuffle(question_indices)
-
-                            # Reorder questions, answers, and options based on shuffled indices
-                            shuffled_questions = [
-                                original_questions[i] for i in question_indices]
-                            shuffled_correct_answers = [
-                                original_correct_answers[i] for i in question_indices]
-                            shuffled_options_per_question = [original_options_per_question[i] if i < len(
-                                original_options_per_question) else "" for i in question_indices]
-
-                            # For multiple choice questions, also shuffle the options within each question
-                            if qb_details.get('question_type', '').lower() == "multiple-choice":
-                                final_options_per_question = []
-                                final_correct_answers = []
-
-                                for i, (correct_letter, options_str) in enumerate(zip(shuffled_correct_answers, shuffled_options_per_question)):
-                                    if options_str:
-                                        # Parse options for this question
-                                        question_options = [
-                                            opt.strip() for opt in options_str.split('###') if opt.strip()]
-
-                                        # Only shuffle if we have multiple options
-                                        if len(question_options) >= 2:
-                                            # Get the correct answer text before shuffling
-                                            correct_index = ord(
-                                                correct_letter) - ord('A') if correct_letter in ['A', 'B', 'C', 'D'] else 0
-                                            correct_text = question_options[correct_index] if correct_index < len(
-                                                question_options) else question_options[0]
-
-                                            # Shuffle the options
-                                            random.shuffle(question_options)
-
-                                            # Find the new position of the correct answer
-                                            new_correct_index = question_options.index(
-                                                correct_text)
-                                            new_correct_letter = chr(
-                                                ord('A') + new_correct_index)
-
-                                            # Store shuffled options and new correct answer
-                                            final_options_per_question.append(
-                                                '###'.join(question_options))
-                                            final_correct_answers.append(
-                                                new_correct_letter)
-                                        else:
-                                            # Not enough options to shuffle, keep as is
-                                            final_options_per_question.append(
-                                                options_str)
-                                            final_correct_answers.append(
-                                                correct_letter)
-                                    else:
-                                        final_options_per_question.append("")
-                                        final_correct_answers.append(
-                                            correct_letter)
-
-                                # Update the options in qb_details
-                                shuffled_qb_details = qb_details.copy()
-                                shuffled_qb_details['options'] = '|||'.join(
-                                    final_options_per_question)
-                                shuffled_correct_answers = final_correct_answers
-                            else:
-                                # For non-MCQ, just use the shuffled data as is
-                                shuffled_qb_details = qb_details.copy()
-                                shuffled_qb_details['options'] = '|||'.join(
-                                    shuffled_options_per_question)
-
                             st.session_state.assessment_started = True
                             st.session_state.assessment_finished = False
-                            st.session_state.qb_details = shuffled_qb_details
-                            st.session_state.questions = shuffled_questions
-                            st.session_state.correct_answers = shuffled_correct_answers
-                            st.session_state.user_answers = [
-                                None] * len(shuffled_questions)
+                            st.session_state.qb_details = qb_details
+                            st.session_state.questions = questions
+                            st.session_state.correct_answers = get_correct_answers(qb_id)
+                            st.session_state.user_answers = [None] * len(questions)
                             st.session_state.current_question_index = 0
                             st.session_state.start_time = datetime.now()
                             st.session_state.end_time = datetime.now() + timedelta(minutes=time_limit_minutes)
@@ -4521,19 +4062,15 @@ def employee_dashboard(username):
         elif st.session_state.assessment_started and not st.session_state.assessment_finished:
             time_left = st.session_state.end_time - datetime.now()
             if time_left.total_seconds() < 0:
-                st.warning(
-                    "Time is up! Submitting your assessment automatically.")
+                st.warning("Time is up! Submitting your assessment automatically.")
                 st.session_state.assessment_finished = True
                 st.rerun()
 
             # Persistent Top Bar
             top_cols = st.columns([3, 1])
-            top_cols[0].subheader(
-                f"Assessment: {st.session_state.qb_details['technology']}")
-            top_cols[1].markdown(
-                f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
-            st.progress(time_left.total_seconds(
-            ) / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
+            top_cols[0].subheader(f"Assessment: {st.session_state.qb_details['technology']}")
+            top_cols[1].markdown(f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
+            st.progress(time_left.total_seconds() / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
 
             # Sidebar Navigation
             with st.sidebar:
@@ -4543,18 +4080,15 @@ def employee_dashboard(username):
                 for i in range(len(st.session_state.questions)):
                     col = palette_cols[i % 5]
                     is_current = (i == st.session_state.current_question_index)
-                    is_answered = (
-                        st.session_state.user_answers[i] is not None and st.session_state.user_answers[i] != "")
-                    btn_type = "primary" if is_current else (
-                        "secondary" if is_answered else "secondary")
+                    is_answered = (st.session_state.user_answers[i] is not None and st.session_state.user_answers[i] != "")
+                    btn_type = "primary" if is_current else ("secondary" if is_answered else "secondary")
                     if col.button(f"{i+1}", key=f"nav_{i}", use_container_width=True, type=btn_type):
                         st.session_state.current_question_index = i
                         st.rerun()
 
             # Main Question Area
             q_idx = st.session_state.current_question_index
-            st.markdown(
-                f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
+            st.markdown(f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
             st.write(st.session_state.questions[q_idx])
 
             def record_answer():
@@ -4562,68 +4096,43 @@ def employee_dashboard(username):
                 if widget_key in st.session_state:
                     st.session_state.user_answers[q_idx] = st.session_state[widget_key]
 
-            question_type = st.session_state.qb_details.get(
-                'question_type', '').lower()
-
+            question_type = st.session_state.qb_details.get('question_type', '').lower()
+            
             # --- FIXED LOGIC TO DISPLAY CORRECT WIDGET ---
             if question_type == "multiple-choice":
                 # Split all options by question separator (|||)
-                all_options_text = st.session_state.qb_details.get(
-                    'options', '')
-                options_per_question = [
-                    opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
-
+                all_options_text = st.session_state.qb_details.get('options', '')
+                options_per_question = [opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
+                
                 # Check if we have options for the current question
                 if q_idx < len(options_per_question) and options_per_question[q_idx]:
                     # Split the options for current question by ### separator
-                    options = [opt.strip() for opt in options_per_question[q_idx].split(
-                        '###') if opt.strip()]
-
+                    options = [opt.strip() for opt in options_per_question[q_idx].split('###') if opt.strip()]
+                    
                     if options:  # Make sure we have actual options
                         current_answer = st.session_state.user_answers[q_idx]
+                        
+                        try:
+                            current_index = options.index(current_answer) if current_answer in options else None
+                        except ValueError:
+                            current_index = None
 
-                        # Convert current answer letter to index
-                        current_index = None
-                        if current_answer and current_answer in ['A', 'B', 'C', 'D']:
-                            current_index = ord(current_answer) - ord('A')
-                            if current_index >= len(options):
-                                current_index = None
-
-                        # Custom record_answer function for MCQ to store letter instead of text
-                        def record_mcq_answer():
-                            widget_key = f"q_widget_{q_idx}"
-                            if widget_key in st.session_state:
-                                selected_text = st.session_state[widget_key]
-                                if selected_text in options:
-                                    # Convert selected option text to letter (A, B, C, D)
-                                    selected_index = options.index(
-                                        selected_text)
-                                    selected_letter = chr(
-                                        ord('A') + selected_index)
-                                    st.session_state.user_answers[q_idx] = selected_letter
-
-                        st.radio("Select your answer:", options,
-                                 key=f"q_widget_{q_idx}", index=current_index, on_change=record_mcq_answer)
+                        st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", index=current_index, on_change=record_answer)
                     else:
-                        st.warning(
-                            f"No valid options found for question {q_idx + 1}.")
+                        st.warning(f"No valid options found for question {q_idx + 1}.")
                         st.session_state.user_answers[q_idx] = ""
                 else:
-                    st.warning(
-                        f"Options for question {q_idx + 1} are missing or malformed.")
+                    st.warning(f"Options for question {q_idx + 1} are missing or malformed.")
                     st.session_state.user_answers[q_idx] = ""
 
             elif question_type == "fill-in-the-blank":
-                st.text_input(
-                    "Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
-
+                st.text_input("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
+            
             elif question_type == "subjective":
-                st.text_area(
-                    "Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
-
+                st.text_area("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
+            
             else:
-                st.error(
-                    f"Unknown question type: '{question_type}'. Please contact your trainer.")
+                st.error(f"Unknown question type: '{question_type}'. Please contact your trainer.")
 
             # --- Bottom Navigation ---
             st.write("---")
@@ -4643,61 +4152,34 @@ def employee_dashboard(username):
             st.subheader("Assessment Results")
             score = 0
             for i, user_answer in enumerate(st.session_state.user_answers):
-                if user_answer is not None and user_answer.strip().upper() == st.session_state.correct_answers[i].strip().upper():
+                if user_answer is not None and user_answer.strip().lower() == st.session_state.correct_answers[i].strip().lower():
                     score += 1
             total_questions = len(st.session_state.questions)
-            percentage = (score / total_questions) * \
-                100 if total_questions > 0 else 0
-
-            st.metric("Final Score",
-                      f"{score} / {total_questions}", f"{percentage:.2f}%")
-            save_assessment_result(
-                username, st.session_state.qb_details['_id'], score)
-
+            percentage = (score / total_questions) * 100 if total_questions > 0 else 0
+            
+            st.metric("Final Score", f"{score} / {total_questions}", f"{percentage:.2f}%")
+            save_assessment_result(username, st.session_state.qb_details['_id'], score)
+            
             with st.expander("Review Your Answers", expanded=True):
-                # Get options for displaying in results
-                all_options_text = st.session_state.qb_details.get(
-                    'options', '')
-                options_per_question = [
-                    opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
-
                 for i, q in enumerate(st.session_state.questions):
                     st.write(f"**Question {i+1}: {q}**")
                     user_ans = st.session_state.user_answers[i]
                     correct_ans = st.session_state.correct_answers[i]
-
-                    # For multiple choice, show both letter and text
-                    if st.session_state.qb_details.get('question_type', '').lower() == "multiple-choice":
-                        if i < len(options_per_question) and options_per_question[i]:
-                            options = [opt.strip() for opt in options_per_question[i].split(
-                                '###') if opt.strip()]
-
-                            user_display = f"{user_ans}) {options[ord(user_ans) - ord('A')]}" if user_ans and user_ans in [
-                                'A', 'B', 'C', 'D'] and ord(user_ans) - ord('A') < len(options) else user_ans if user_ans else 'Not Answered'
-                            correct_display = f"{correct_ans}) {options[ord(correct_ans) - ord('A')]}" if correct_ans and correct_ans in [
-                                'A', 'B', 'C', 'D'] and ord(correct_ans) - ord('A') < len(options) else correct_ans
-                        else:
-                            user_display = user_ans if user_ans else 'Not Answered'
-                            correct_display = correct_ans
+                    if user_ans and user_ans.strip().lower() == correct_ans.strip().lower():
+                        st.success(f"✔️ Your answer: {user_ans}")
                     else:
-                        user_display = user_ans if user_ans else 'Not Answered'
-                        correct_display = correct_ans
-
-                    if user_ans and user_ans.strip().upper() == correct_ans.strip().upper():
-                        st.success(f"✔️ Your answer: {user_display}")
-                    else:
-                        st.error(f"❌ Your answer: {user_display}")
-                        st.info(f"Correct answer: {correct_display}")
+                        st.error(f"❌ Your answer: {user_ans if user_ans else 'Not Answered'}")
+                        st.info(f"Correct answer: {correct_ans}")
                     st.write("---")
             if st.button("Take Another Assessment"):
                 # Clean up all session state variables related to the assessment
-                keys_to_delete = [k for k in st.session_state.keys() if k.startswith(
-                    'assessment_') or k.startswith('q_widget_')]
+                keys_to_delete = [k for k in st.session_state.keys() if k.startswith('assessment_') or k.startswith('q_widget_')]
                 for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
 
+        
     elif selected_tab == "Your Progress":
         st.subheader("Your Progress 📊")
         completed_assessments = get_completed_assessments(username)
@@ -4852,15 +4334,12 @@ def employee_dashboard(username):
     elif selected_tab == "Prepare from Material":
         st.subheader("Prepare from Material 📚")
         learning_plans = get_user_learning_plans(username)
-
+        
         if not learning_plans:
-            st.info(
-                "No materials available because you have no learning plans assigned.")
+            st.info("No materials available because you have no learning plans assigned.")
         else:
-            user_technologies = sorted(
-                list(set([p['technology'] for p in learning_plans])))
-            selected_tech = st.selectbox(
-                "Select a Curriculum from Your Learning Plan", options=user_technologies)
+            user_technologies = sorted(list(set([p['technology'] for p in learning_plans])))
+            selected_tech = st.selectbox("Select a Curriculum from Your Learning Plan", options=user_technologies)
 
             if selected_tech:
                 curriculum_content = get_curriculum_text(selected_tech)
@@ -4872,44 +4351,36 @@ def employee_dashboard(username):
                     # --- TRANSLATION FEATURE WITH CHUNKING ---
                     st.markdown("---")
                     st.subheader("Translate Material")
-                    languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish",
-                                 "French", "German", "Chinese", "Japanese", "Korean"]
-                    selected_language = st.selectbox(
-                        "Translate to:", languages)
+                    languages = ["English", "Hindi", "Tamil", "Telugu", "Spanish", "French", "German", "Chinese", "Japanese", "Korean"]
+                    selected_language = st.selectbox("Translate to:", languages)
 
                     if st.button("Translate", key="translate_material"):
                         with st.spinner(f"Translating to {selected_language}..."):
                             try:
                                 # Define the maximum length for each chunk
                                 max_chunk_size = 4500  # Well below the 5000 limit
-
+                                
                                 # Split the text into chunks
-                                text_chunks = [curriculum_content[i:i + max_chunk_size]
-                                               for i in range(0, len(curriculum_content), max_chunk_size)]
-
+                                text_chunks = [curriculum_content[i:i + max_chunk_size] for i in range(0, len(curriculum_content), max_chunk_size)]
+                                
                                 translated_chunks = []
-                                translator = GoogleTranslator(
-                                    source='auto', target=selected_language.lower())
+                                translator = GoogleTranslator(source='auto', target=selected_language.lower())
 
                                 # Translate each chunk and append to the list
                                 for chunk in text_chunks:
-                                    translated_chunks.append(
-                                        translator.translate(chunk))
-
+                                    translated_chunks.append(translator.translate(chunk))
+                                
                                 # Join the translated chunks back together
-                                full_translated_text = " ".join(
-                                    translated_chunks)
+                                full_translated_text = " ".join(translated_chunks)
 
-                                st.subheader(
-                                    f"Translated Content ({selected_language})")
+                                st.subheader(f"Translated Content ({selected_language})")
                                 st.success(full_translated_text)
-
+                                
                             except Exception as e:
                                 st.error(f"Translation failed. Error: {e}")
                     # --- END OF FEATURE ---
                 else:
-                    st.error(
-                        "Could not retrieve content for the selected curriculum.")
+                    st.error("Could not retrieve content for the selected curriculum.")
 
     elif selected_tab == "Discussion Forum":
         discussion_forum()
@@ -5051,6 +4522,7 @@ def employee_dashboard(username):
         st.sidebar.write("No notifications available.")
 
 
+
 # Add this function to your file
 @st.cache_data
 def translate_text(text, target_language):
@@ -5061,16 +4533,13 @@ def translate_text(text, target_language):
         # It's good practice to re-initialize the translator
         translator = googletrans.Translator()
         # The library uses language codes (e.g., 'hi' for Hindi)
-        lang_code = googletrans.LANGCODES.get(
-            target_language.lower(), target_language.lower())
-
+        lang_code = googletrans.LANGCODES.get(target_language.lower(), target_language.lower())
+        
         # Chunking for long texts
         max_chunk_size = 4500
-        text_chunks = [text[i:i + max_chunk_size]
-                       for i in range(0, len(text), max_chunk_size)]
-        translated_chunks = [translator.translate(
-            chunk, dest=lang_code).text for chunk in text_chunks]
-
+        text_chunks = [text[i:i + max_chunk_size] for i in range(0, len(text), max_chunk_size)]
+        translated_chunks = [translator.translate(chunk, dest=lang_code).text for chunk in text_chunks]
+        
         return " ".join(translated_chunks)
     except Exception as e:
         return f"Translation Error: {e}"
@@ -5412,8 +4881,6 @@ def get_next_question_bank_id(qb_id):
 
 # REFACTORED: To create a learning plan, initiated by a trainer.
 # In your stt.py file, replace this function
-# In your stt.py file, replace this entire function
-
 def create_learning_plan(qb_id_obj, username, trainer_username):
     """
     Creates a learning plan record linking a user, a question bank,
@@ -5449,8 +4916,7 @@ def create_learning_plan(qb_id_obj, username, trainer_username):
         learning_plan_data = {
             'username': username,
             'question_bank_id': qb_id_obj,
-            # <-- CRITICAL FIX: Add the trainer's username
-            'trainer_username': trainer_username,
+            'trainer_username': trainer_username,  # <-- CRITICAL FIX: Add the trainer's username
             'technology': technology,
             'status': 'Assigned',
             'start_date': start_date.strftime('%Y-%m-%d'),
@@ -5623,626 +5089,104 @@ def check_admin_exists():
         return False
 
 
-# --- NEW HELPER FUNCTIONS FOR THE PROFILE SELECTION UI ---
-
-def set_view(view):
-    """Callback function to change the view in session state."""
-    st.session_state.login_view = view
-
-
-# def render_profile_selection():
-#     """Renders the main screen with circular profile buttons using custom images."""
-#     st.title("Welcome to the AI-Powered Learning Hub")
-#     st.write("Please select your profile to continue or register as a new user.")
-
-#     # Custom CSS for circular image avatars
-#     st.markdown("""
-#     <style>
-#     div[data-testid="stHorizontalBlock"] > div {
-#         display: flex;
-#         justify-content: center;
-#         align-items: center;
-#         text-align: center;
-#         flex-direction: column;
-#     }
-
-#     .profile-container {
-#         display: flex;
-#         flex-direction: column;
-#         align-items: center;
-#         margin: 20px 10px;
-#         cursor: pointer;
-#         transition: transform 0.3s ease;
-#         text-decoration: none;
-#     }
-
-#     .profile-container:hover {
-#         transform: scale(1.05);
-#     }
-
-#     .profile-image {
-#         width: 120px;
-#         height: 120px;
-#         border-radius: 50%;
-#         border: 3px solid #3498db;
-#         object-fit: cover;
-#         transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-#         cursor: pointer;
-#         box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
-#     }
-
-#     .profile-image:hover {
-#         border-color: #2980b9;
-#         box-shadow: 0px 5px 15px rgba(0,0,0,0.2);
-#         transform: scale(1.1);
-#     }
-
-#     .profile-label {
-#         margin-top: 15px;
-#         font-size: 1.1em;
-#         font-weight: 600;
-#         color: #333;
-#         text-align: center;
-#         transition: color 0.3s ease;
-#     }
-
-#     .profile-container:hover .profile-label {
-#         color: #2980b9;
-#     }
-
-#     /* Hide the actual streamlit buttons */
-#     .stButton > button {
-#         opacity: 0;
-#         height: 0;
-#         margin: 0;
-#         padding: 0;
-#         border: none;
-#         position: absolute;
-#         z-index: -1;
-#     }
-#     </style>
-
-#     <script>
-#     function triggerButton(buttonKey) {
-#         // Find and click the button with the specific key
-#         const buttons = document.querySelectorAll('button[data-testid="baseButton-secondary"]');
-#         buttons.forEach(button => {
-#             if (button.textContent.includes(buttonKey) || button.getAttribute('aria-label') === buttonKey) {
-#                 button.click();
-#             }
-#         });
-
-#         // Alternative method - try to find by unique identifiers
-#         setTimeout(() => {
-#             const targetButton = document.querySelector(`[key="${buttonKey}"]`);
-#             if (targetButton) {
-#                 targetButton.click();
-#             }
-#         }, 100);
-#     }
-#     </script>
-#     """, unsafe_allow_html=True)
-
-#     col1, col2, col3, col4 = st.columns(4)
-
-#     with col1:
-#         # Hidden button for Admin
-#         if st.button("admin", key="admin_btn"):
-#             set_view('admin_login')
-#             st.rerun()
-
-#         # Admin profile with image
-#         st.markdown("""
-#         <div class="profile-container" onclick="triggerButton('admin_btn');">
-#             <img src="data:image/png;base64,{}" class="profile-image" alt="Admin">
-#             <div class="profile-label">👑 Admin</div>
-#         </div>
-#         """.format(get_image_base64('image/admin.png')), unsafe_allow_html=True)
-
-#     with col2:
-#         # Hidden button for Trainer
-#         if st.button("trainer", key="trainer_btn"):
-#             set_view('trainer_login')
-#             st.rerun()
-
-#         # Trainer profile with image
-#         st.markdown("""
-#         <div class="profile-container" onclick="triggerButton('trainer_btn');">
-#             <img src="data:image/png;base64,{}" class="profile-image" alt="Trainer">
-#             <div class="profile-label">🧑‍🏫 Trainer</div>
-#         </div>
-#         """.format(get_image_base64('image/trainer.png')), unsafe_allow_html=True)
-
-#     with col3:
-#         # Hidden button for Employee
-#         if st.button("employee", key="employee_btn"):
-#             set_view('employee_login')
-#             st.rerun()
-
-#         # Employee profile with image
-#         st.markdown("""
-#         <div class="profile-container" onclick="triggerButton('employee_btn');">
-#             <img src="data:image/png;base64,{}" class="profile-image" alt="Employee">
-#             <div class="profile-label">🧑‍🎓 Employee</div>
-#         </div>
-#         """.format(get_image_base64('image/employee.png')), unsafe_allow_html=True)
-
-#     with col4:
-#         # Hidden button for Register
-#         if st.button("register", key="register_btn"):
-#             set_view('register')
-#             st.rerun()
-
-#         # Register profile
-#         st.markdown("""
-#         <div class="profile-container" onclick="triggerButton('register_btn');">
-#             <div style="width: 120px; height: 120px; border-radius: 50%; border: 3px solid #3498db;
-#                         background: linear-gradient(135deg, #3498db, #2980b9); display: flex;
-#                         align-items: center; justify-content: center; font-size: 3em; color: white;
-#                         box-shadow: 0px 2px 8px rgba(0,0,0,0.1); transition: all 0.3s ease;">
-#                 ➕
-#             </div>
-#             <div class="profile-label">Register</div>
-#         </div>
-#         """, unsafe_allow_html=True)
-
-
-def get_image_base64(image_path):
-    """Convert image to base64 string for embedding."""
-    import base64
-    try:
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        # Return a placeholder or empty string if image not found
-        print(f"Warning: Image not found at {image_path}")
-        return ""
-
-
-def set_view(view):
-    """Callback function to change the view in session state."""
-    st.session_state.login_view = view
-
-
-def get_image_base64(image_path):
-    """Convert image to base64 string for embedding."""
-    import base64
-    try:
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        # Return a placeholder or empty string if image not found
-        print(f"Warning: Image not found at {image_path}")
-        return ""
-
-
-def set_view(view):
-    """Callback function to change the view in session state."""
-    st.session_state.login_view = view
-
-
-def render_profile_selection_working():
-    """Renders the main screen with circular profile buttons using custom images."""
-
-    # Enhanced title styling
-    st.markdown("""
-    <div style='text-align: center; margin-bottom: 50px;'>
-        <h1 style='
-            font-size: 48px; 
-            font-weight: 800; 
-            color: #ffffff; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-            letter-spacing: 1px;
-        '>
-            🎓 Welcome to the AI-Powered Learning Hub
-        </h1>
-        <p style='
-            text-align: center; 
-            font-size: 20px; 
-            color: #e8e8e8; 
-            margin-bottom: 0;
-            font-weight: 300;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-        '>
-            Please select your profile to continue or register as a new user
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Enhanced Custom CSS with no white boxes
-    st.markdown("""
-    <style>
-    /* Completely hide all Streamlit default styling */
-    .block-container {
-        padding-top: 2rem;
-        max-width: 100%;
-    }
-    
-    /* Ensure main content area has proper spacing */
-    .main .block-container {
-        padding-top: 3rem;
-    }
-    
-    /* Hide default Streamlit title */
-    .stApp > header {
-        background: transparent;
-    }
-    
-    .stColumn {
-        background: transparent !important;
-    }
-    
-    .stColumn > div {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }
-    
-    .stColumn > div > div {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }
-    
-    /* Custom title styling */
-    .custom-title {
-        text-align: center;
-        margin: 30px 0 50px 0;
-        padding: 20px;
-        position: relative;
-        z-index: 10;
-    }
-    
-    .custom-title h1 {
-        font-size: 42px !important;
-        font-weight: 800 !important;
-        color: #ffffff !important;
-        text-shadow: 3px 3px 6px rgba(0,0,0,0.7) !important;
-        margin: 0 0 20px 0 !important;
-        letter-spacing: 1px !important;
-        line-height: 1.2 !important;
-        word-wrap: break-word !important;
-        display: block !important;
-        visibility: visible !important;
-    }
-    
-    .custom-title p {
-        font-size: 18px !important;
-        color: #e8e8e8 !important;
-        margin: 0 !important;
-        font-weight: 300 !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5) !important;
-        line-height: 1.4 !important;
-    }
-    
-    /* Clean profile styling without boxes */
-    .profile-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        padding: 20px 10px;
-        margin: 10px 5px;
-        background: transparent;
-    }
-    
-    .profile-image {
-        width: 140px; 
-        height: 140px; 
-        border-radius: 50%;
-        border: 4px solid #3498db; 
-        object-fit: cover;
-        transition: all 0.4s ease; 
-        box-shadow: 0px 10px 30px rgba(52, 152, 219, 0.3);
-        background: #f8f9fa;
-        display: block;
-        margin: 0 auto;
-    }
-    
-    .profile-image:hover {
-        border-color: #2980b9; 
-        box-shadow: 0px 15px 40px rgba(41, 128, 185, 0.4);
-        transform: scale(1.08);
-    }
-    
-    .emoji-avatar {
-        width: 140px; 
-        height: 140px; 
-        border-radius: 50%; 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        font-size: 4em; 
-        color: white;
-        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3);
-        transition: all 0.4s ease;
-        margin: 0 auto;
-    }
-    
-    .emoji-avatar:hover {
-        transform: scale(1.08);
-        box-shadow: 0px 15px 40px rgba(0, 0, 0, 0.4);
-    }
-    
-    .admin-avatar {
-        border: 4px solid #e74c3c; 
-        background: linear-gradient(135deg, #e74c3c, #c0392b);
-        box-shadow: 0px 10px 30px rgba(231, 76, 60, 0.3);
-    }
-    
-    .trainer-avatar {
-        border: 4px solid #f39c12; 
-        background: linear-gradient(135deg, #f39c12, #d68910);
-        box-shadow: 0px 10px 30px rgba(243, 156, 18, 0.3);
-    }
-    
-    .employee-avatar {
-        border: 4px solid #9b59b6; 
-        background: linear-gradient(135deg, #9b59b6, #8e44ad);
-        box-shadow: 0px 10px 30px rgba(155, 89, 182, 0.3);
-    }
-    
-    .register-avatar {
-        border: 4px solid #27ae60; 
-        background: linear-gradient(135deg, #27ae60, #229954);
-        box-shadow: 0px 10px 30px rgba(39, 174, 96, 0.3);
-    }
-    
-    .profile-title {
-        font-size: 20px;
-        font-weight: 700;
-        color: #2c3e50;
-        margin: 15px 0 8px 0;
-        letter-spacing: 0.5px;
-        text-align: center;
-    }
-    
-    .profile-subtitle {
-        font-size: 13px;
-        color: #7f8c8d;
-        margin-bottom: 20px;
-        line-height: 1.4;
-        text-align: center;
-        min-height: 40px;
-    }
-    
-    .stButton > button {
-        background: linear-gradient(135deg, #3498db, #2980b9) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 25px !important;
-        padding: 12px 25px !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
-        transition: all 0.3s ease !important;
-        width: 100% !important;
-        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3) !important;
-        letter-spacing: 0.5px !important;
-        text-transform: uppercase !important;
-    }
-    
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #2980b9, #1f618d) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(41, 128, 185, 0.4) !important;
-    }
-    
-    /* Responsive design */
-    @media (max-width: 768px) {
-        .profile-column {
-            margin: 10px 2px;
-            padding: 20px 10px;
-            min-height: 320px;
-        }
-        .profile-image, .emoji-avatar {
-            width: 120px;
-            height: 120px;
-        }
-        .profile-title {
-            font-size: 18px;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns(4, gap="small")
-
-    with col1:
-        st.markdown('<div class="profile-section">', unsafe_allow_html=True)
-
-        admin_img = get_image_base64('image/admin.png')
-        if admin_img:
-            st.markdown(
-                f'<img src="data:image/png;base64,{admin_img}" class="profile-image" alt="System Administrator">',
-                unsafe_allow_html=True)
-        else:
-            st.markdown(
-                '<div class="emoji-avatar admin-avatar">👑</div>', unsafe_allow_html=True)
-
-        st.markdown(
-            '<h3 class="profile-title">System Administrator</h3>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="profile-subtitle">Manage users, courses, and system settings</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.button("Sign In as Admin", on_click=set_view, args=('admin_login',),
-                  use_container_width=True, key="admin_profile_btn")
-
-    with col2:
-        st.markdown('<div class="profile-section">', unsafe_allow_html=True)
-
-        trainer_img = get_image_base64('image/teacher.png')
-        if trainer_img:
-            st.markdown(
-                f'<img src="data:image/png;base64,{trainer_img}" class="profile-image" alt="Training Instructor">',
-                unsafe_allow_html=True)
-        else:
-            st.markdown(
-                '<div class="emoji-avatar trainer-avatar">🧑‍🏫</div>', unsafe_allow_html=True)
-
-        st.markdown(
-            '<h3 class="profile-title">Training Instructor</h3>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="profile-subtitle">Create courses, manage content, and track progress</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.button("Sign In as Trainer", on_click=set_view, args=('trainer_login',),
-                  use_container_width=True, key="trainer_profile_btn")
-
-    with col3:
-        st.markdown('<div class="profile-section">', unsafe_allow_html=True)
-
-        employee_img = get_image_base64('image/student.jpg')
-        if employee_img:
-            st.markdown(
-                f'<img src="data:image/jpeg;base64,{employee_img}" class="profile-image" alt="Learning Employee">',
-                unsafe_allow_html=True)
-        else:
-            st.markdown(
-                '<div class="emoji-avatar employee-avatar">🧑‍🎓</div>', unsafe_allow_html=True)
-
-        st.markdown('<h3 class="profile-title">Learning Employee</h3>',
-                    unsafe_allow_html=True)
-        st.markdown(
-            '<p class="profile-subtitle">Access courses, take assessments, and track learning</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.button("Sign In as Employee", on_click=set_view, args=('employee_login',),
-                  use_container_width=True, key="employee_profile_btn")
-
-    with col4:
-        st.markdown('<div class="profile-section">', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="emoji-avatar register-avatar">➕</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<h3 class="profile-title">New User Registration</h3>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="profile-subtitle">Create a new account to get started</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.button("Create New Account", on_click=set_view, args=('register',),
-                  use_container_width=True, key="register_profile_btn")
-
-
-def render_login_form(role):
-    """Renders a login form for a specific role with a Lottie animation on the left
-       and the form centered vertically on the right."""
-
-    # Role display mapping
-    role_display = {
-        'Administrator': 'System Administrator',
-        'Trainer': 'Training Instructor',
-        'Employee': 'Learning Employee'
-    }
-
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        st.components.v1.html(
-            """
-            <iframe src="https://lottie.host/embed/1b7b20ac-876d-4a6f-82d5-a1b188f88863/6aZt4s4ExJ.json"
-            width="100%" height="600" frameborder="0" allowfullscreen></iframe>
-            """,
-            height=610
-        )
-
-    with col2:
-        st.write("<br>" * 5, unsafe_allow_html=True)
-        st.subheader(f"{role_display.get(role, role)} Login")
-        username = st.text_input(
-            "Username 👤", placeholder="Enter your username", key=f"user_{role}")
-        password = st.text_input("Password 🔑", type="password",
-                                 placeholder="Enter your password", key=f"pass_{role}")
-
-        if st.button("Login", use_container_width=True, key=f"login_btn_{role}"):
-            user = login_user(username, password)
-            if user and user['role'] == role:
-                st.session_state.user = user
-                st.success("Logged in successfully!")
-                st.rerun()
-            else:
-                st.error("Invalid username, password, or role")
-
-        if st.button("← Back to Profiles", use_container_width=True, key=f"back_btn_{role}"):
-            set_view('profile_selection')
-            st.rerun()
-
-
-def render_register_form():
-    """Renders the user registration form."""
-    st.subheader("Create a New Account")
-    new_email = st.text_input("Email ✉️", placeholder="Enter your email")
-    new_username = st.text_input("Username 👤", placeholder="Choose a username")
-    new_password = st.text_input(
-        "Password 🔑", type="password", placeholder="Choose a password")
-
-    admin_exists = check_admin_exists()
-
-    # Updated role options with better names
-    role_options = ["Training Instructor", "Learning Employee"] if admin_exists else [
-        "System Administrator", "Training Instructor", "Learning Employee"]
-
-    role = st.selectbox("Role 👨🏻‍💼", role_options)
-
-    # Map display names back to internal role names
-    role_mapping = {
-        "System Administrator": "Administrator",
-        "Training Instructor": "Trainer",
-        "Learning Employee": "Employee"
-    }
-
-    if role == "System Administrator" and not admin_exists:
-        st.warning(
-            "You are registering as the system administrator. This can only be done once.")
-
-    if st.button("Register", use_container_width=True):
-        internal_role = role_mapping.get(role, role)
-        if register_user(new_email, new_username, new_password, internal_role):
-            st.success("Registration successful! Please go back to log in.")
-
-    if st.button("← Back to Profiles", use_container_width=True):
-        set_view('profile_selection')
-        st.rerun()
-
-# --- MAIN APP LOGIC ---
-
-
 def main():
+
     if 'user' not in st.session_state:
         st.session_state.user = None
 
-    if 'login_view' not in st.session_state:
-        st.session_state.login_view = 'profile_selection'
-
     if st.session_state.user is None:
-        view = st.session_state.login_view
-        if view == 'profile_selection':
-            render_profile_selection_working()
-        elif view == 'admin_login':
-            render_login_form('Administrator')
-        elif view == 'trainer_login':
-            render_login_form('Trainer')
-        elif view == 'employee_login':
-            render_login_form('Employee')
-        elif view == 'register':
-            render_register_form()
+        # Show the two-column layout only during login/register
+        col1, col2 = st.columns(2)
+
+        # Column 1: Embed Lottie animation
+        with col1:
+            st.components.v1.html(
+                """
+                <iframe src="https://lottie.host/embed/1b7b20ac-876d-4a6f-82d5-a1b188f88863/6aZt4s4ExJ.json" 
+                        width="100%" height="600" frameborder="0" allowfullscreen></iframe>
+                """,
+                height=600,
+            )
+
+        # Column 2: User authentication
+        with col2:
+            st.title("Automated Question Builder")
+            st.write("")
+            st.write("")
+            st.write("")
+
+            selected = option_menu(
+                menu_title=None,
+                options=["Login", "Register"],
+                icons=["person", "person-plus"],
+                menu_icon="cast",
+                default_index=0,
+                orientation="horizontal",
+            )
+
+            if selected == "Login":
+                username = st.text_input("Username 👤", key="login_username",
+                                         placeholder="Enter your username", help="Your username")
+                password = st.text_input("Password 🔑", type="password", key="login_password",
+                                         placeholder="Enter your password", help="Your password")
+                if st.button("Login", key="login_button"):
+                    user = login_user(username, password)
+                    if user:
+                        st.session_state.user = user
+                        st.success("Logged in successfully!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password")
+
+            elif selected == "Register":
+                new_email = st.text_input("Email ✉️ ", key="register_email",
+                                          placeholder="Enter your email")
+                new_username = st.text_input("Username 👤", key="register_username",
+                                             placeholder="Choose a username")
+                new_password = st.text_input("Password 🔑", type="password",
+                                             key="register_password",
+                                             placeholder="Choose a password")
+
+                # Check if admin exists before showing admin role option
+                admin_exists = check_admin_exists()
+                if admin_exists:
+                    role_options = ["Trainer", "Employee"]
+                    role = st.selectbox(
+                        "Role 👨🏻‍💼", role_options, key="register_role")
+                else:
+                    role_options = ["Administrator", "Trainer", "Employee"]
+                    role = st.selectbox(
+                        "Role", role_options, key="register_role")
+                    if role == "Administrator":
+                        st.warning(
+                            "You are registering as the system administrator. This role can only be assigned once.")
+
+                if st.button("Register", key="register_button"):
+                    # Double check admin existence before registration
+                    if role == "Administrator" and check_admin_exists():
+                        st.error(
+                            "An administrator account already exists. Please select a different role.")
+                    else:
+                        if register_user(new_email, new_username, new_password, role):
+                            st.success(
+                                "Registration successful! Please log in.")
+                        else:
+                            st.error(
+                                "Registration failed. Username may already exist.")
+
     else:
-        st.sidebar.write(
-            f"Logged in as: **{st.session_state.user['username']}**")
+        # Single column layout for logged-in users
+
+        st.sidebar.write(f"Logged in as: {st.session_state.user['username']}")
         if st.sidebar.button("Logout", key="logout_button"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
+            st.session_state.user = None
             st.rerun()
 
-        role = st.session_state.user['role']
-        if role == 'Administrator':
+        if st.session_state.user['role'] == 'Administrator':
             admin_dashboard()
-        elif role == 'Trainer':
+        elif st.session_state.user['role'] == 'Trainer':
             trainer_dashboard()
-        elif role == 'Employee':
+        elif st.session_state.user['role'] == 'Employee':
             employee_dashboard(st.session_state.user['username'])
 
 
