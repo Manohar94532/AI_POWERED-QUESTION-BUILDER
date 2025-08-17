@@ -1177,18 +1177,6 @@ def evaluate_assessment_results():
             st.write("---")
 
 
-# Replace the results section in your main code with this:
-elif st.session_state.assessment_finished:
-    evaluate_assessment_results()
-    
-    if st.button("Take Another Assessment"):
-        # Clean up all session state variables related to the assessment
-        keys_to_delete = [k for k in st.session_state.keys() if k.startswith(
-            'assessment_') or k.startswith('q_widget_')]
-        for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
 
 # Removed ensure_table_exists as MongoDB handles collection creation implicitly
 
