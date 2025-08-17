@@ -11090,105 +11090,43 @@ def check_admin_exists():
 
 
 def main():
-
+    # Initialize session state for user and the current view
     if 'user' not in st.session_state:
         st.session_state.user = None
+    if 'login_view' not in st.session_state:
+        st.session_state.login_view = 'profile_selection'
 
+    # --- Main Application Logic ---
     if st.session_state.user is None:
-        # Show the two-column layout only during login/register
-        col1, col2 = st.columns(2)
-
-        # Column 1: Embed Lottie animation
-        with col1:
-            st.components.v1.html(
-                """
-                <iframe src="https://lottie.host/embed/1b7b20ac-876d-4a6f-82d5-a1b188f88863/6aZt4s4ExJ.json" 
-                        width="100%" height="600" frameborder="0" allowfullscreen></iframe>
-                """,
-                height=600,
-            )
-
-        # Column 2: User authentication
-        with col2:
-            st.title("AI-Powered Learning Support")
-            st.write("")
-            st.write("")
-            st.write("")
-
-            selected = option_menu(
-                menu_title=None,
-                options=["Login", "Register"],
-                icons=["person", "person-plus"],
-                menu_icon="cast",
-                default_index=0,
-                orientation="horizontal",
-            )
-
-            if selected == "Login":
-                username = st.text_input("Username 👤", key="login_username",
-                                         placeholder="Enter your username", help="Your username")
-                password = st.text_input("Password 🔑", type="password", key="login_password",
-                                         placeholder="Enter your password", help="Your password")
-                if st.button("Login", key="login_button"):
-                    user = login_user(username, password)
-                    if user:
-                        st.session_state.user = user
-                        st.success("Logged in successfully!")
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password")
-
-            elif selected == "Register":
-                new_email = st.text_input("Email ✉️ ", key="register_email",
-                                          placeholder="Enter your email")
-                new_username = st.text_input("Username 👤", key="register_username",
-                                             placeholder="Choose a username")
-                new_password = st.text_input("Password 🔑", type="password",
-                                             key="register_password",
-                                             placeholder="Choose a password")
-
-                # Check if admin exists before showing admin role option
-                admin_exists = check_admin_exists()
-                if admin_exists:
-                    role_options = ["Trainer", "employee"]
-                    role = st.selectbox(
-                        "Role 👨🏻‍💼", role_options, key="register_role")
-                else:
-                    role_options = ["Administrator", "Trainer", "employee"]
-                    role = st.selectbox(
-                        "Role", role_options, key="register_role")
-                    if role == "Administrator":
-                        st.warning(
-                            "You are registering as the system administrator. This role can only be assigned once.")
-
-                if st.button("Register", key="register_button"):
-                    # Double check admin existence before registration
-                    if role == "Administrator" and check_admin_exists():
-                        st.error(
-                            "An administrator account already exists. Please select a different role.")
-                    else:
-                        if register_user(new_email, new_username, new_password, role):
-                            st.success(
-                                "Registration successful! Please log in.")
-                        else:
-                            st.error(
-                                "Registration failed. Username may already exist.")
-
+        # If no user is logged in, show the appropriate login/register view
+        view = st.session_state.login_view
+        if view == 'profile_selection':
+            render_profile_selection_working()
+        elif view == 'admin_login':
+            render_login_form('Administrator')
+        elif view == 'trainer_login':
+            render_login_form('Trainer')
+        elif view == 'employee_login':
+            render_login_form('Employee')
+        elif view == 'register':
+            render_register_form()
     else:
-        # Single column layout for logged-in users
-
-        st.sidebar.write(f"Logged in as: {st.session_state.user['username']}")
+        # If a user is logged in, show their respective dashboard
+        st.sidebar.write(f"Logged in as: **{st.session_state.user['username']}**")
         if st.sidebar.button("Logout", key="logout_button"):
-            st.session_state.user = None
+            # Clear all session state keys to ensure a clean logout
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
             st.rerun()
 
-        if st.session_state.user['role'] == 'Administrator':
+        # Route to the correct dashboard based on the user's role
+        role = st.session_state.user['role']
+        if role == 'Administrator':
             admin_dashboard()
-        elif st.session_state.user['role'] == 'Trainer':
+        elif role == 'Trainer':
             trainer_dashboard()
-        elif st.session_state.user['role'] == 'employee':
+        elif role == 'Employee':
             employee_dashboard(st.session_state.user['username'])
-
 
 if __name__ == "__main__":
     main()
