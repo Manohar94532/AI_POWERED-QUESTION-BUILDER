@@ -4127,12 +4127,14 @@ def employee_dashboard(username):
                     del st.session_state[key]
 
             learning_plans = get_user_learning_plans(username)
-            available_assessments = [p for p in learning_plans if p.get('status') != 'Completed']
+            available_assessments = [
+                p for p in learning_plans if p.get('status') != 'Completed']
 
             if not available_assessments:
                 st.info("You have no available assessments to take.")
             else:
-                assessment_options = {p['question_bank_id']: f"{p['technology']} - {p['difficulty']}" for p in available_assessments}
+                assessment_options = {
+                    p['question_bank_id']: f"{p['technology']} - {p['difficulty']}" for p in available_assessments}
                 selected_qb_id_str = st.selectbox(
                     "Select an Assessment from Your Learning Plan",
                     options=list(assessment_options.keys()),
@@ -4144,11 +4146,14 @@ def employee_dashboard(username):
                 if selected_qb_id_str:
                     qb_id = ObjectId(selected_qb_id_str)
                     all_qbs = get_all_question_banks()
-                    qb_details = next((qb for qb in all_qbs if qb['_id'] == qb_id), None)
+                    qb_details = next(
+                        (qb for qb in all_qbs if qb['_id'] == qb_id), None)
 
                     if qb_details:
-                        questions = [q for q in qb_details.get('questions', '').split('\n') if q.strip()]
-                        time_limit_minutes = len(questions) * 1.5  # 1.5 minutes per question
+                        questions = [q for q in qb_details.get(
+                            'questions', '').split('\n') if q.strip()]
+                        # 1.5 minutes per question
+                        time_limit_minutes = len(questions) * 1.5
 
                         st.info(f"""
                         **You have selected:** {qb_details['technology']} ({qb_details['difficulty']})
@@ -4157,12 +4162,92 @@ def employee_dashboard(username):
                         """)
 
                         if st.button("Start Assessment", type="primary"):
+                            import random
+
+                            # Get original data
+                            original_questions = questions
+                            original_correct_answers = get_correct_answers(
+                                qb_id)
+                            original_options_text = qb_details.get(
+                                'options', '')
+                            original_options_per_question = [
+                                opt.strip() for opt in original_options_text.split('|||') if opt.strip()]
+
+                            # Create question indices and shuffle them
+                            question_indices = list(
+                                range(len(original_questions)))
+                            random.shuffle(question_indices)
+
+                            # Reorder questions, answers, and options based on shuffled indices
+                            shuffled_questions = [
+                                original_questions[i] for i in question_indices]
+                            shuffled_correct_answers = [
+                                original_correct_answers[i] for i in question_indices]
+                            shuffled_options_per_question = [original_options_per_question[i] if i < len(
+                                original_options_per_question) else "" for i in question_indices]
+
+                            # For multiple choice questions, also shuffle the options within each question
+                            if qb_details.get('question_type', '').lower() == "multiple-choice":
+                                final_options_per_question = []
+                                final_correct_answers = []
+
+                                for i, (correct_letter, options_str) in enumerate(zip(shuffled_correct_answers, shuffled_options_per_question)):
+                                    if options_str:
+                                        # Parse options for this question
+                                        question_options = [
+                                            opt.strip() for opt in options_str.split('###') if opt.strip()]
+
+                                        # Only shuffle if we have multiple options
+                                        if len(question_options) >= 2:
+                                            # Get the correct answer text before shuffling
+                                            correct_index = ord(
+                                                correct_letter) - ord('A') if correct_letter in ['A', 'B', 'C', 'D'] else 0
+                                            correct_text = question_options[correct_index] if correct_index < len(
+                                                question_options) else question_options[0]
+
+                                            # Shuffle the options
+                                            random.shuffle(question_options)
+
+                                            # Find the new position of the correct answer
+                                            new_correct_index = question_options.index(
+                                                correct_text)
+                                            new_correct_letter = chr(
+                                                ord('A') + new_correct_index)
+
+                                            # Store shuffled options and new correct answer
+                                            final_options_per_question.append(
+                                                '###'.join(question_options))
+                                            final_correct_answers.append(
+                                                new_correct_letter)
+                                        else:
+                                            # Not enough options to shuffle, keep as is
+                                            final_options_per_question.append(
+                                                options_str)
+                                            final_correct_answers.append(
+                                                correct_letter)
+                                    else:
+                                        final_options_per_question.append("")
+                                        final_correct_answers.append(
+                                            correct_letter)
+
+                                # Update the options in qb_details
+                                shuffled_qb_details = qb_details.copy()
+                                shuffled_qb_details['options'] = '|||'.join(
+                                    final_options_per_question)
+                                shuffled_correct_answers = final_correct_answers
+                            else:
+                                # For non-MCQ, just use the shuffled data as is
+                                shuffled_qb_details = qb_details.copy()
+                                shuffled_qb_details['options'] = '|||'.join(
+                                    shuffled_options_per_question)
+
                             st.session_state.assessment_started = True
                             st.session_state.assessment_finished = False
-                            st.session_state.qb_details = qb_details
-                            st.session_state.questions = questions
-                            st.session_state.correct_answers = get_correct_answers(qb_id)
-                            st.session_state.user_answers = [None] * len(questions)
+                            st.session_state.qb_details = shuffled_qb_details
+                            st.session_state.questions = shuffled_questions
+                            st.session_state.correct_answers = shuffled_correct_answers
+                            st.session_state.user_answers = [
+                                None] * len(shuffled_questions)
                             st.session_state.current_question_index = 0
                             st.session_state.start_time = datetime.now()
                             st.session_state.end_time = datetime.now() + timedelta(minutes=time_limit_minutes)
@@ -4172,15 +4257,19 @@ def employee_dashboard(username):
         elif st.session_state.assessment_started and not st.session_state.assessment_finished:
             time_left = st.session_state.end_time - datetime.now()
             if time_left.total_seconds() < 0:
-                st.warning("Time is up! Submitting your assessment automatically.")
+                st.warning(
+                    "Time is up! Submitting your assessment automatically.")
                 st.session_state.assessment_finished = True
                 st.rerun()
 
             # Persistent Top Bar
             top_cols = st.columns([3, 1])
-            top_cols[0].subheader(f"Assessment: {st.session_state.qb_details['technology']}")
-            top_cols[1].markdown(f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
-            st.progress(time_left.total_seconds() / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
+            top_cols[0].subheader(
+                f"Assessment: {st.session_state.qb_details['technology']}")
+            top_cols[1].markdown(
+                f"**Time Left: <font color='red'>{str(time_left).split('.')[0]}</font>**", unsafe_allow_html=True)
+            st.progress(time_left.total_seconds(
+            ) / ((st.session_state.end_time - st.session_state.start_time).total_seconds()))
 
             # Sidebar Navigation
             with st.sidebar:
@@ -4190,15 +4279,18 @@ def employee_dashboard(username):
                 for i in range(len(st.session_state.questions)):
                     col = palette_cols[i % 5]
                     is_current = (i == st.session_state.current_question_index)
-                    is_answered = (st.session_state.user_answers[i] is not None and st.session_state.user_answers[i] != "")
-                    btn_type = "primary" if is_current else ("secondary" if is_answered else "secondary")
+                    is_answered = (
+                        st.session_state.user_answers[i] is not None and st.session_state.user_answers[i] != "")
+                    btn_type = "primary" if is_current else (
+                        "secondary" if is_answered else "secondary")
                     if col.button(f"{i+1}", key=f"nav_{i}", use_container_width=True, type=btn_type):
                         st.session_state.current_question_index = i
                         st.rerun()
 
             # Main Question Area
             q_idx = st.session_state.current_question_index
-            st.markdown(f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
+            st.markdown(
+                f"#### Question {q_idx + 1} of {len(st.session_state.questions)}")
             st.write(st.session_state.questions[q_idx])
 
             def record_answer():
@@ -4206,43 +4298,68 @@ def employee_dashboard(username):
                 if widget_key in st.session_state:
                     st.session_state.user_answers[q_idx] = st.session_state[widget_key]
 
-            question_type = st.session_state.qb_details.get('question_type', '').lower()
-            
+            question_type = st.session_state.qb_details.get(
+                'question_type', '').lower()
+
             # --- FIXED LOGIC TO DISPLAY CORRECT WIDGET ---
             if question_type == "multiple-choice":
                 # Split all options by question separator (|||)
-                all_options_text = st.session_state.qb_details.get('options', '')
-                options_per_question = [opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
-                
+                all_options_text = st.session_state.qb_details.get(
+                    'options', '')
+                options_per_question = [
+                    opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
+
                 # Check if we have options for the current question
                 if q_idx < len(options_per_question) and options_per_question[q_idx]:
                     # Split the options for current question by ### separator
-                    options = [opt.strip() for opt in options_per_question[q_idx].split('###') if opt.strip()]
-                    
+                    options = [opt.strip() for opt in options_per_question[q_idx].split(
+                        '###') if opt.strip()]
+
                     if options:  # Make sure we have actual options
                         current_answer = st.session_state.user_answers[q_idx]
-                        
-                        try:
-                            current_index = options.index(current_answer) if current_answer in options else None
-                        except ValueError:
-                            current_index = None
 
-                        st.radio("Select your answer:", options, key=f"q_widget_{q_idx}", index=current_index, on_change=record_answer)
+                        # Convert current answer letter to index
+                        current_index = None
+                        if current_answer and current_answer in ['A', 'B', 'C', 'D']:
+                            current_index = ord(current_answer) - ord('A')
+                            if current_index >= len(options):
+                                current_index = None
+
+                        # Custom record_answer function for MCQ to store letter instead of text
+                        def record_mcq_answer():
+                            widget_key = f"q_widget_{q_idx}"
+                            if widget_key in st.session_state:
+                                selected_text = st.session_state[widget_key]
+                                if selected_text in options:
+                                    # Convert selected option text to letter (A, B, C, D)
+                                    selected_index = options.index(
+                                        selected_text)
+                                    selected_letter = chr(
+                                        ord('A') + selected_index)
+                                    st.session_state.user_answers[q_idx] = selected_letter
+
+                        st.radio("Select your answer:", options,
+                                 key=f"q_widget_{q_idx}", index=current_index, on_change=record_mcq_answer)
                     else:
-                        st.warning(f"No valid options found for question {q_idx + 1}.")
+                        st.warning(
+                            f"No valid options found for question {q_idx + 1}.")
                         st.session_state.user_answers[q_idx] = ""
                 else:
-                    st.warning(f"Options for question {q_idx + 1} are missing or malformed.")
+                    st.warning(
+                        f"Options for question {q_idx + 1} are missing or malformed.")
                     st.session_state.user_answers[q_idx] = ""
 
             elif question_type == "fill-in-the-blank":
-                st.text_input("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
-            
+                st.text_input(
+                    "Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
+
             elif question_type == "subjective":
-                st.text_area("Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
-            
+                st.text_area(
+                    "Your answer:", key=f"q_widget_{q_idx}", value=st.session_state.user_answers[q_idx] or "", on_change=record_answer)
+
             else:
-                st.error(f"Unknown question type: '{question_type}'. Please contact your trainer.")
+                st.error(
+                    f"Unknown question type: '{question_type}'. Please contact your trainer.")
 
             # --- Bottom Navigation ---
             st.write("---")
@@ -4262,32 +4379,61 @@ def employee_dashboard(username):
             st.subheader("Assessment Results")
             score = 0
             for i, user_answer in enumerate(st.session_state.user_answers):
-                if user_answer is not None and user_answer.strip().lower() == st.session_state.correct_answers[i].strip().lower():
+                if user_answer is not None and user_answer.strip().upper() == st.session_state.correct_answers[i].strip().upper():
                     score += 1
             total_questions = len(st.session_state.questions)
-            percentage = (score / total_questions) * 100 if total_questions > 0 else 0
-            
-            st.metric("Final Score", f"{score} / {total_questions}", f"{percentage:.2f}%")
-            save_assessment_result(username, st.session_state.qb_details['_id'], score)
-            
+            percentage = (score / total_questions) * \
+                100 if total_questions > 0 else 0
+
+            st.metric("Final Score",
+                      f"{score} / {total_questions}", f"{percentage:.2f}%")
+            save_assessment_result(
+                username, st.session_state.qb_details['_id'], score)
+
             with st.expander("Review Your Answers", expanded=True):
+                # Get options for displaying in results
+                all_options_text = st.session_state.qb_details.get(
+                    'options', '')
+                options_per_question = [
+                    opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
+
                 for i, q in enumerate(st.session_state.questions):
                     st.write(f"**Question {i+1}: {q}**")
                     user_ans = st.session_state.user_answers[i]
                     correct_ans = st.session_state.correct_answers[i]
-                    if user_ans and user_ans.strip().lower() == correct_ans.strip().lower():
-                        st.success(f"✔️ Your answer: {user_ans}")
+
+                    # For multiple choice, show both letter and text
+                    if st.session_state.qb_details.get('question_type', '').lower() == "multiple-choice":
+                        if i < len(options_per_question) and options_per_question[i]:
+                            options = [opt.strip() for opt in options_per_question[i].split(
+                                '###') if opt.strip()]
+
+                            user_display = f"{user_ans}) {options[ord(user_ans) - ord('A')]}" if user_ans and user_ans in [
+                                'A', 'B', 'C', 'D'] and ord(user_ans) - ord('A') < len(options) else user_ans if user_ans else 'Not Answered'
+                            correct_display = f"{correct_ans}) {options[ord(correct_ans) - ord('A')]}" if correct_ans and correct_ans in [
+                                'A', 'B', 'C', 'D'] and ord(correct_ans) - ord('A') < len(options) else correct_ans
+                        else:
+                            user_display = user_ans if user_ans else 'Not Answered'
+                            correct_display = correct_ans
                     else:
-                        st.error(f"❌ Your answer: {user_ans if user_ans else 'Not Answered'}")
-                        st.info(f"Correct answer: {correct_ans}")
+                        user_display = user_ans if user_ans else 'Not Answered'
+                        correct_display = correct_ans
+
+                    if user_ans and user_ans.strip().upper() == correct_ans.strip().upper():
+                        st.success(f"✔️ Your answer: {user_display}")
+                    else:
+                        st.error(f"❌ Your answer: {user_display}")
+                        st.info(f"Correct answer: {correct_display}")
                     st.write("---")
             if st.button("Take Another Assessment"):
                 # Clean up all session state variables related to the assessment
-                keys_to_delete = [k for k in st.session_state.keys() if k.startswith('assessment_') or k.startswith('q_widget_')]
+                keys_to_delete = [k for k in st.session_state.keys() if k.startswith(
+                    'assessment_') or k.startswith('q_widget_')]
                 for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
                     if key in st.session_state:
                         del st.session_state[key]
                 st.rerun()
+
 
         
     elif selected_tab == "Your Progress":
