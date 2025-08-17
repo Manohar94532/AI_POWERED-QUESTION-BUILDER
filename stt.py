@@ -1002,9 +1002,6 @@ def create_new_question_bank(technology, difficulty, questions):
         return None
 
 
-import random
-import time
-
 def generate_questions(text, num_questions=5, question_type="multiple-choice"):
     if question_type == "multiple-choice":
         prompt = f"""Generate {num_questions} multiple-choice questions based on the following text:
@@ -1192,6 +1189,7 @@ elif st.session_state.assessment_finished:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
+
 # Removed ensure_table_exists as MongoDB handles collection creation implicitly
 
 
@@ -4373,51 +4371,10 @@ def employee_dashboard(username):
                 st.rerun()
 
         # --- View 3: Results Page ---
+        # --- View 3: Results Page ---
         elif st.session_state.assessment_finished:
-            st.subheader("Assessment Results")
-            score = 0
-            for i, user_answer in enumerate(st.session_state.user_answers):
-                if user_answer is not None and user_answer.strip().upper() == st.session_state.correct_answers[i].strip().upper():
-                    score += 1
-            total_questions = len(st.session_state.questions)
-            percentage = (score / total_questions) * \
-                100 if total_questions > 0 else 0
-
-            st.metric("Final Score",
-                      f"{score} / {total_questions}", f"{percentage:.2f}%")
-            save_assessment_result(
-                username, st.session_state.qb_details['_id'], score)
-
-            with st.expander("Review Your Answers", expanded=True):
-                # Get options for displaying in results
-                all_options_text = st.session_state.qb_details.get('options', '')
-                options_per_question = [opt.strip() for opt in all_options_text.split('|||') if opt.strip()]
-                
-                for i, q in enumerate(st.session_state.questions):
-                    st.write(f"**Question {i+1}: {q}**")
-                    user_ans = st.session_state.user_answers[i]
-                    correct_ans = st.session_state.correct_answers[i]
-                    
-                    # For multiple choice, show both letter and text
-                    if st.session_state.qb_details.get('question_type', '').lower() == "multiple-choice":
-                        if i < len(options_per_question) and options_per_question[i]:
-                            options = [opt.strip() for opt in options_per_question[i].split('###') if opt.strip()]
-                            
-                            user_display = f"{user_ans}) {options[ord(user_ans) - ord('A')]}" if user_ans and user_ans in ['A', 'B', 'C', 'D'] and ord(user_ans) - ord('A') < len(options) else user_ans if user_ans else 'Not Answered'
-                            correct_display = f"{correct_ans}) {options[ord(correct_ans) - ord('A')]}" if correct_ans and correct_ans in ['A', 'B', 'C', 'D'] and ord(correct_ans) - ord('A') < len(options) else correct_ans
-                        else:
-                            user_display = user_ans if user_ans else 'Not Answered'
-                            correct_display = correct_ans
-                    else:
-                        user_display = user_ans if user_ans else 'Not Answered'
-                        correct_display = correct_ans
-                    
-                    if user_ans and user_ans.strip().upper() == correct_ans.strip().upper():
-                        st.success(f"✔️ Your answer: {user_display}")
-                    else:
-                        st.error(f"❌ Your answer: {user_display}")
-                        st.info(f"Correct answer: {correct_display}")
-                    st.write("---")
+            evaluate_assessment_results()
+            
             if st.button("Take Another Assessment"):
                 # Clean up all session state variables related to the assessment
                 keys_to_delete = [k for k in st.session_state.keys() if k.startswith(
@@ -4425,8 +4382,7 @@ def employee_dashboard(username):
                 for key in keys_to_delete + ['qb_details', 'questions', 'correct_answers', 'user_answers', 'current_question_index', 'start_time', 'end_time']:
                     if key in st.session_state:
                         del st.session_state[key]
-                st.rerun()
-
+        st.rerun()
         
     elif selected_tab == "Your Progress":
         st.subheader("Your Progress 📊")
