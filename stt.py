@@ -865,7 +865,7 @@ def create_connection():
         return None
 
 
-db = create_connection()
+
 
 
 def get_unassigned_employees():
@@ -5511,6 +5511,7 @@ def trainer_dashboard(): st.title("Trainer Dashboard")
 def employee_dashboard(username): st.title(f"Welcome, {username}!")
 
 def render_login_form(role):
+    db = create_connection()
     """
     Renders a centered login form with a glowing profile image, without a surrounding container.
     (MODIFIED to remove the form box)
@@ -5651,6 +5652,7 @@ def render_login_form(role):
             st.rerun()
 
 def render_register_form():
+    db = create_connection()
     """Renders the user registration form with a centered, box-less design."""
 
     # --- CSS MODIFIED: .form-container removed, .emoji-avatar styles added ---
@@ -5781,6 +5783,8 @@ def render_register_form():
             st.rerun()
 
 def main():
+    global db
+    db = create_connection() # Safely get the connection on each rerun
     if 'user' not in st.session_state:
         st.session_state.user = None
     if 'login_view' not in st.session_state:
