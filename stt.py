@@ -510,137 +510,214 @@ def trainer_dashboard():
 
     # In your trainer_dashboard function, replace the entire performance block with this:
 
-elif selected == "employee Performance": # Consider renaming this to "Student Performance" in your option_menu for consistency
-    st.subheader("Student Performance 📈")
+    elif selected == "employee Performance": # Consider renaming this to "Student Performance" in your option_menu for consistency
+        st.subheader("Student Performance 📈")
 
-    # --- THIS IS THE FIX ---
-    # This line now correctly fetches ONLY the students assigned to the logged-in trainer.
-    assigned_students = get_assigned_employees(trainer_username)
+        # --- THIS IS THE FIX ---
+        # This line now correctly fetches ONLY the students assigned to the logged-in trainer.
+        assigned_students = get_assigned_employees(trainer_username)
 
-    if not assigned_students:
-        st.info("You have not assigned any students yet. Use the 'Assign Students' tab to get started.")
-    else:
-        # Create a list of usernames for the dropdown menu
-        student_options = [student['username'] for student in assigned_students]
-        
-        selected_student = st.selectbox(
-            "Select a Student to View Their Performance",
-            options=student_options,
-            key="student_performance_select"
-        )
-
-        if selected_student:
-            # Fetch assessment results for the selected student
-            assessment_results = get_assessment_results(selected_student)
+        if not assigned_students:
+            st.info("You have not assigned any students yet. Use the 'Assign Students' tab to get started.")
+        else:
+            # Create a list of usernames for the dropdown menu
+            student_options = [student['username'] for student in assigned_students]
             
-            if assessment_results:
-                # Prepare data for the table
-                performance_data = []
-                for result in assessment_results:
-                    performance_data.append({
-                        'Question Bank ID': str(result['question_bank_id']),
-                        'Score': result['score'],
-                        'Completed At': result['completed_at']
-                    })
+            selected_student = st.selectbox(
+                "Select a Student to View Their Performance",
+                options=student_options,
+                key="student_performance_select"
+            )
 
-                # Convert to DataFrame for better visualization
-                performance_df = pd.DataFrame(performance_data)
+            if selected_student:
+                # Fetch assessment results for the selected student
+                assessment_results = get_assessment_results(selected_student)
+                
+                if assessment_results:
+                    # Prepare data for the table
+                    performance_data = []
+                    for result in assessment_results:
+                        performance_data.append({
+                            'Question Bank ID': str(result['question_bank_id']),
+                            'Score': result['score'],
+                            'Completed At': result['completed_at']
+                        })
 
-                # Display summary metrics
-                st.subheader(f"Summary Statistics for {selected_student}")
-                total_assessments = len(performance_df)
-                avg_score = performance_df['Score'].mean() if total_assessments > 0 else 0
-                best_score = performance_df['Score'].max() if total_assessments > 0 else 0
+                    # Convert to DataFrame for better visualization
+                    performance_df = pd.DataFrame(performance_data)
 
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total Assessments", total_assessments)
-                with col2:
-                    st.metric("Average Score", f"{avg_score:.1f}")
-                with col3:
-                    st.metric("Best Score", best_score)
+                    # Display summary metrics
+                    st.subheader(f"Summary Statistics for {selected_student}")
+                    total_assessments = len(performance_df)
+                    avg_score = performance_df['Score'].mean() if total_assessments > 0 else 0
+                    best_score = performance_df['Score'].max() if total_assessments > 0 else 0
 
-                # Display the performance data in a styled table
-                st.write(f"Performance Data for {selected_student}:")
-                st.dataframe(performance_df.style.highlight_max(axis=0, subset=['Score']))
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total Assessments", total_assessments)
+                    with col2:
+                        st.metric("Average Score", f"{avg_score:.1f}")
+                    with col3:
+                        st.metric("Best Score", best_score)
 
-                # Convert 'Completed At' column to datetime for sorting
-                performance_df['Completed At'] = pd.to_datetime(performance_df['Completed At'])
-                performance_df.sort_values('Completed At', inplace=True)
+                    # Display the performance data in a styled table
+                    st.write(f"Performance Data for {selected_student}:")
+                    st.dataframe(performance_df.style.highlight_max(axis=0, subset=['Score']))
 
-                # Create visualizations
-                st.subheader("Performance Over Time")
+                    # Convert 'Completed At' column to datetime for sorting
+                    performance_df['Completed At'] = pd.to_datetime(performance_df['Completed At'])
+                    performance_df.sort_values('Completed At', inplace=True)
 
-                # Line chart for scores over time
-                fig_line = px.line(performance_df, x='Completed At', y='Score',
-                                   title='Score Over Time', markers=True)
-                st.plotly_chart(fig_line, use_container_width=True)
+                    # Create visualizations
+                    st.subheader("Performance Over Time")
 
-                # Bar chart for scores by question bank
-                fig_bar = px.bar(performance_df, x='Question Bank ID', y='Score',
-                                 title='Scores by Question Bank', text='Score')
-                st.plotly_chart(fig_bar, use_container_width=True)
+                    # Line chart for scores over time
+                    fig_line = px.line(performance_df, x='Completed At', y='Score',
+                                    title='Score Over Time', markers=True)
+                    st.plotly_chart(fig_line, use_container_width=True)
 
-                # Convert figures to HTML format for download
-                fig_line_html = fig_line.to_html(full_html=False)
-                fig_bar_html = fig_bar.to_html(full_html=False)
+                    # Bar chart for scores by question bank
+                    fig_bar = px.bar(performance_df, x='Question Bank ID', y='Score',
+                                    title='Scores by Question Bank', text='Score')
+                    st.plotly_chart(fig_bar, use_container_width=True)
 
-                # Provide download buttons
-                st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
-                                   file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
+                    # Convert figures to HTML format for download
+                    fig_line_html = fig_line.to_html(full_html=False)
+                    fig_bar_html = fig_bar.to_html(full_html=False)
 
-                st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
-                                   file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
+                    # Provide download buttons
+                    st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
+                                    file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
 
-                st.download_button(label="Download Performance Data as CSV",
-                                   data=performance_df.to_csv(index=False).encode('utf-8'),
-                                   file_name=f"{selected_student}_performance.csv", mime="text/csv")
+                    st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
+                                    file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
 
-            else:
-                st.info(f"No assessment results available for {selected_student}.")
+                    st.download_button(label="Download Performance Data as CSV",
+                                    data=performance_df.to_csv(index=False).encode('utf-8'),
+                                    file_name=f"{selected_student}_performance.csv", mime="text/csv")
 
-    # Display content based on the selected option
-    if selected == "Generate Questions":
-        # Horizontal menu for question generation methods
-        question_generation_method = option_menu(
-            menu_title=None,  # required
-            options=["Generate Questions by Topic",
-                     "Generate Questions from Prompt"],  # required
-            icons=["book", "pencil"],  # optional
-            menu_icon="cast",  # optional
-            default_index=0,  # optional
-            orientation="horizontal",
-        )
+                else:
+                    st.info(f"No assessment results available for {selected_student}.")
 
-        if question_generation_method == "Generate Questions by Topic":
-            st.subheader("Generate Questions by Topic 🚀")
-            topic_name = st.text_input(
-                "Enter Topic Name", key="topic_input")  # Input for topic name
-            num_questions = st.number_input("Number of Questions to Generate", min_value=1,
-                                            value=5, key="num_questions_input")  # Input for number of questions
+        # Display content based on the selected option
+        if selected == "Generate Questions":
+            # Horizontal menu for question generation methods
+            question_generation_method = option_menu(
+                menu_title=None,  # required
+                options=["Generate Questions by Topic",
+                        "Generate Questions from Prompt"],  # required
+                icons=["book", "pencil"],  # optional
+                menu_icon="cast",  # optional
+                default_index=0,  # optional
+                orientation="horizontal",
+            )
 
-            # Dropdown for selecting question type
-            question_type = st.selectbox("Select Question Type", [
-                                         "Multiple Choice", "Subjective", "Fill in the Blanks"], key="question_type_select")
+            if question_generation_method == "Generate Questions by Topic":
+                st.subheader("Generate Questions by Topic 🚀")
+                topic_name = st.text_input(
+                    "Enter Topic Name", key="topic_input")  # Input for topic name
+                num_questions = st.number_input("Number of Questions to Generate", min_value=1,
+                                                value=5, key="num_questions_input")  # Input for number of questions
 
-            if st.button("Generate Questions", key="generate_topic_questions_button"):
-                if topic_name:
-                    try:
-                        prompt = f"Generate {num_questions} {question_type.lower()} questions based on the topic: {topic_name}."
-                        generated_questions = model.generate_content(
-                            prompt)  # Using the model to generate questions
-                        questions_text = generated_questions.text.strip()  # Extracting the generated text
+                # Dropdown for selecting question type
+                question_type = st.selectbox("Select Question Type", [
+                                            "Multiple Choice", "Subjective", "Fill in the Blanks"], key="question_type_select")
 
-                        # Displaying the generated questions
+                if st.button("Generate Questions", key="generate_topic_questions_button"):
+                    if topic_name:
+                        try:
+                            prompt = f"Generate {num_questions} {question_type.lower()} questions based on the topic: {topic_name}."
+                            generated_questions = model.generate_content(
+                                prompt)  # Using the model to generate questions
+                            questions_text = generated_questions.text.strip()  # Extracting the generated text
+
+                            # Displaying the generated questions
+                            st.write("Generated Questions:")
+                            questions_list = questions_text.split('\n')
+                            selected_questions = []
+
+                            for i, question in enumerate(questions_list, 1):
+                                if question.strip():  # Only show non-empty questions
+                                    # Display each question with a checkbox
+                                    if st.checkbox(f"Question {i}: {question.strip()}", value=True):
+                                        selected_questions.append(question.strip())
+
+                            # Store generated questions in session state
+                            if 'history' not in st.session_state:
+                                st.session_state.history = []
+                            st.session_state.history.append(
+                                {"topic": topic_name, "questions": selected_questions})
+
+                            st.session_state.generated_questions = selected_questions
+                            st.session_state.topic_name = topic_name
+                            st.success(
+                                f"Generated {len(selected_questions)} questions. Please proceed to add them to a question bank.")
+                        except Exception as e:
+                            st.error(f"Error generating questions: {e}")
+                    else:
+                        st.error("Please enter a topic name.")
+
+                # New feature: Add Questions to Question Bank
+                if 'generated_questions' in st.session_state and st.session_state.generated_questions:
+                    st.subheader("Add Questions to Question Bank")
+
+                    existing_question_banks = get_all_question_banks()
+                    qb_options = ["Create New Question Bank"] + [
+                        f"ID: {str(qb['_id'])} - {qb['technology']} - {qb['difficulty']}" for qb in existing_question_banks]
+                    selected_qb = st.selectbox(
+                        "Select Question Bank", options=qb_options)
+
+                    if st.button("Add Questions to Selected Bank"):
+                        if selected_qb == "Create New Question Bank":
+                            new_qb_technology = st.text_input(
+                                "Enter technology for new question bank")
+                            new_qb_difficulty = st.selectbox("Select difficulty for new question bank", [
+                                                            "Easy", "Medium", "Hard"])
+                            if st.button("Create and Add"):
+                                new_qb_id = create_new_question_bank(
+                                    new_qb_technology, new_qb_difficulty, st.session_state.generated_questions)
+                                if new_qb_id:
+                                    st.success(
+                                        f"Created new question bank with ID: {new_qb_id} and added selected questions.")
+                                    st.session_state.generated_qb_id = new_qb_id  # Store the new question bank ID
+                                else:
+                                    st.error("Failed to create new question bank.")
+                        else:
+                            qb_id = ObjectId(selected_qb.split(
+                                # Convert to ObjectId
+                                '-')[0].split(':')[1].strip())
+                            if add_questions_to_question_bank(qb_id, st.session_state.topic_name, st.session_state.generated_questions):
+                                st.success(
+                                    f"Questions added to question bank ID: {qb_id}")
+                            else:
+                                st.error(
+                                    "Failed to add questions to the selected question bank.")
+
+                        # Clear the generated questions from session state
+                        del st.session_state.generated_questions
+                        del st.session_state.topic_name
+
+            elif question_generation_method == "Generate Questions from Prompt":
+                st.subheader("Generate Questions from Prompt ✍️")
+                topic_name = st.text_input("Enter Topic Name")
+                prompt = st.text_area("Enter a paragraph to generate questions")
+                question_type = st.selectbox("Select Question Type", [
+                                            "Multiple Choice", "Subjective", "Fill in the Blanks"])
+                difficulty_level = st.selectbox("Select Difficulty Level", [
+                                                "Easy", "Medium", "Hard"])
+                num_questions = st.number_input(
+                    "Number of Questions to Generate", min_value=1, value=10)
+
+                if st.button("Generate Questions"):
+                    generated_questions = generate_questions_from_prompt(
+                        prompt, question_type, difficulty_level, num_questions, topic_name)
+                    if generated_questions:
                         st.write("Generated Questions:")
-                        questions_list = questions_text.split('\n')
                         selected_questions = []
-
-                        for i, question in enumerate(questions_list, 1):
-                            if question.strip():  # Only show non-empty questions
-                                # Display each question with a checkbox
-                                if st.checkbox(f"Question {i}: {question.strip()}", value=True):
-                                    selected_questions.append(question.strip())
+                        for i, question in enumerate(generated_questions):
+                            if st.checkbox(f"Question {i+1}", value=True):
+                                selected_questions.append(question)
+                            st.write(question)
 
                         # Store generated questions in session state
                         if 'history' not in st.session_state:
@@ -652,141 +729,64 @@ elif selected == "employee Performance": # Consider renaming this to "Student Pe
                         st.session_state.topic_name = topic_name
                         st.success(
                             f"Generated {len(selected_questions)} questions. Please proceed to add them to a question bank.")
-                    except Exception as e:
-                        st.error(f"Error generating questions: {e}")
-                else:
-                    st.error("Please enter a topic name.")
-
-            # New feature: Add Questions to Question Bank
-            if 'generated_questions' in st.session_state and st.session_state.generated_questions:
-                st.subheader("Add Questions to Question Bank")
-
-                existing_question_banks = get_all_question_banks()
-                qb_options = ["Create New Question Bank"] + [
-                    f"ID: {str(qb['_id'])} - {qb['technology']} - {qb['difficulty']}" for qb in existing_question_banks]
-                selected_qb = st.selectbox(
-                    "Select Question Bank", options=qb_options)
-
-                if st.button("Add Questions to Selected Bank"):
-                    if selected_qb == "Create New Question Bank":
-                        new_qb_technology = st.text_input(
-                            "Enter technology for new question bank")
-                        new_qb_difficulty = st.selectbox("Select difficulty for new question bank", [
-                                                         "Easy", "Medium", "Hard"])
-                        if st.button("Create and Add"):
-                            new_qb_id = create_new_question_bank(
-                                new_qb_technology, new_qb_difficulty, st.session_state.generated_questions)
-                            if new_qb_id:
-                                st.success(
-                                    f"Created new question bank with ID: {new_qb_id} and added selected questions.")
-                                st.session_state.generated_qb_id = new_qb_id  # Store the new question bank ID
-                            else:
-                                st.error("Failed to create new question bank.")
                     else:
-                        qb_id = ObjectId(selected_qb.split(
-                            # Convert to ObjectId
-                            '-')[0].split(':')[1].strip())
-                        if add_questions_to_question_bank(qb_id, st.session_state.topic_name, st.session_state.generated_questions):
-                            st.success(
-                                f"Questions added to question bank ID: {qb_id}")
-                        else:
-                            st.error(
-                                "Failed to add questions to the selected question bank.")
+                        st.error("Failed to generate questions")
 
-                    # Clear the generated questions from session state
-                    del st.session_state.generated_questions
-                    del st.session_state.topic_name
+                # New feature: View Generated Questions History
+                st.subheader("View Generated Questions History")
+                topic_questions = get_generated_questions_history()  # Retrieve the history
 
-        elif question_generation_method == "Generate Questions from Prompt":
-            st.subheader("Generate Questions from Prompt ✍️")
-            topic_name = st.text_input("Enter Topic Name")
-            prompt = st.text_area("Enter a paragraph to generate questions")
-            question_type = st.selectbox("Select Question Type", [
-                                         "Multiple Choice", "Subjective", "Fill in the Blanks"])
-            difficulty_level = st.selectbox("Select Difficulty Level", [
-                                            "Easy", "Medium", "Hard"])
-            num_questions = st.number_input(
-                "Number of Questions to Generate", min_value=1, value=10)
-
-            if st.button("Generate Questions"):
-                generated_questions = generate_questions_from_prompt(
-                    prompt, question_type, difficulty_level, num_questions, topic_name)
-                if generated_questions:
-                    st.write("Generated Questions:")
-                    selected_questions = []
-                    for i, question in enumerate(generated_questions):
-                        if st.checkbox(f"Question {i+1}", value=True):
-                            selected_questions.append(question)
-                        st.write(question)
-
-                    # Store generated questions in session state
-                    if 'history' not in st.session_state:
-                        st.session_state.history = []
-                    st.session_state.history.append(
-                        {"topic": topic_name, "questions": selected_questions})
-
-                    st.session_state.generated_questions = selected_questions
-                    st.session_state.topic_name = topic_name
-                    st.success(
-                        f"Generated {len(selected_questions)} questions. Please proceed to add them to a question bank.")
+                if topic_questions:
+                    selected_topic = st.selectbox(
+                        "Select Topic", options=list(topic_questions.keys()))
+                    if selected_topic:
+                        questions = topic_questions[selected_topic]
+                        st.write(
+                            f"Generated Questions for Topic: {selected_topic}")
+                        for i, question in enumerate(questions, 1):
+                            st.write(f"{i}. {question}")
                 else:
-                    st.error("Failed to generate questions")
+                    st.info("No generated questions history available.")
 
-            # New feature: View Generated Questions History
-            st.subheader("View Generated Questions History")
-            topic_questions = get_generated_questions_history()  # Retrieve the history
+                if 'generated_questions' in st.session_state and st.session_state.generated_questions:
+                    st.subheader("Add Questions to Question Bank")
 
-            if topic_questions:
-                selected_topic = st.selectbox(
-                    "Select Topic", options=list(topic_questions.keys()))
-                if selected_topic:
-                    questions = topic_questions[selected_topic]
-                    st.write(
-                        f"Generated Questions for Topic: {selected_topic}")
-                    for i, question in enumerate(questions, 1):
-                        st.write(f"{i}. {question}")
-            else:
-                st.info("No generated questions history available.")
+                    existing_question_banks = get_all_question_banks()
+                    qb_options = ["Create New Question Bank"] + [
+                        f"ID: {str(qb['_id'])} - {qb['technology']} - {qb['difficulty']}" for qb in existing_question_banks]
+                    selected_qb = st.selectbox(
+                        "Select Question Bank", options=qb_options)
 
-            if 'generated_questions' in st.session_state and st.session_state.generated_questions:
-                st.subheader("Add Questions to Question Bank")
-
-                existing_question_banks = get_all_question_banks()
-                qb_options = ["Create New Question Bank"] + [
-                    f"ID: {str(qb['_id'])} - {qb['technology']} - {qb['difficulty']}" for qb in existing_question_banks]
-                selected_qb = st.selectbox(
-                    "Select Question Bank", options=qb_options)
-
-                if st.button("Add Questions to Selected Bank"):
-                    if selected_qb == "Create New Question Bank":
-                        new_qb_technology = st.text_input(
-                            "Enter technology for new question bank")
-                        new_qb_difficulty = st.selectbox("Select difficulty for new question bank", [
-                                                         "Easy", "Medium", "Hard"])
-                        if st.button("Create and Add"):
-                            new_qb_id = create_new_question_bank(
-                                new_qb_technology, new_qb_difficulty, st.session_state.generated_questions)
-                            if new_qb_id:
-                                st.success(
-                                    f"Created new question bank with ID: {new_qb_id} and added selected questions.")
-                                st.session_state.generated_qb_id = new_qb_id  # Store the new question bank ID
-                            else:
-                                st.error("Failed to create new question bank.")
-                    else:
-                        qb_id = ObjectId(selected_qb.split(
-                            # Convert to ObjectId
-                            '-')[0].split(':')[1].strip())
-                        if add_questions_to_question_bank(qb_id, st.session_state.topic_name, st.session_state.generated_questions):
-                            st.success(
-                                f"Questions added to question bank ID: {qb_id}")
+                    if st.button("Add Questions to Selected Bank"):
+                        if selected_qb == "Create New Question Bank":
+                            new_qb_technology = st.text_input(
+                                "Enter technology for new question bank")
+                            new_qb_difficulty = st.selectbox("Select difficulty for new question bank", [
+                                                            "Easy", "Medium", "Hard"])
+                            if st.button("Create and Add"):
+                                new_qb_id = create_new_question_bank(
+                                    new_qb_technology, new_qb_difficulty, st.session_state.generated_questions)
+                                if new_qb_id:
+                                    st.success(
+                                        f"Created new question bank with ID: {new_qb_id} and added selected questions.")
+                                    st.session_state.generated_qb_id = new_qb_id  # Store the new question bank ID
+                                else:
+                                    st.error("Failed to create new question bank.")
                         else:
-                            st.error(
-                                "Failed to add questions to the selected question bank.")
+                            qb_id = ObjectId(selected_qb.split(
+                                # Convert to ObjectId
+                                '-')[0].split(':')[1].strip())
+                            if add_questions_to_question_bank(qb_id, st.session_state.topic_name, st.session_state.generated_questions):
+                                st.success(
+                                    f"Questions added to question bank ID: {qb_id}")
+                            else:
+                                st.error(
+                                    "Failed to add questions to the selected question bank.")
 
-        # Clear the generated questions from session state
-                        del st.session_state.generated_questions
-                        del st.session_state.topic_name
-        # Display content based on the selected option
+            # Clear the generated questions from session state
+                            del st.session_state.generated_questions
+                            del st.session_state.topic_name
+            # Display content based on the selected option
 
     elif selected == "Chatbot":
         # Display chatbot interface at the top
