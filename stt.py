@@ -5652,7 +5652,7 @@ def render_login_form(role):
             st.rerun()
 
 def render_register_form():
-    db = create_connection()
+    
     """Renders the user registration form with a centered, box-less design."""
 
     # --- CSS MODIFIED: .form-container removed, .emoji-avatar styles added ---
@@ -5776,7 +5776,10 @@ def render_register_form():
             internal_role = role_mapping.get(role, role)
             if register_user(new_email, new_username, new_password, internal_role):
                 st.success("Registration successful! Please go back to log in.")
-            # Errors are handled within the register_user function
+            # ADD THIS ELSE BLOCK
+            else:
+                st.error("Registration failed. The username may already exist or there was a database issue.")
+                    # Errors are handled within the register_user function
 
         if st.button("← Back to Profiles", use_container_width=True):
             set_view('profile_selection')
