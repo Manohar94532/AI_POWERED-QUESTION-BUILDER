@@ -133,41 +133,137 @@ def trainer_dashboard():
                     "Please provide a technology name and upload a file.")
 
     # --- Generate Question Bank Page (Modified) ---
-    elif selected == "Generate Question Bank":
-        st.subheader("Generate Question Bank 📚")
-        curricula = get_trainer_curricula(trainer_username)
-        if not curricula:
-            st.warning(
-                "No curricula available. Please upload a curriculum first.")
-        else:
-            curriculum_map = {c['technology']: c['content'] for c in curricula}
-            selected_tech = st.selectbox(
-                "Select Curriculum", options=list(curriculum_map.keys()))
+    # In your trainer_dashboard function, replace the entire "Generate Question Bank" block with this:
 
-            num_questions = st.number_input(
-                "Number of Questions", min_value=1, value=5)
-            question_type = st.selectbox(
-                "Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"])
-            difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+elif selected == "Generate Question Bank":
+    st.subheader("Generate a New Question Bank 📚")
+    st.write("Choose your preferred method to generate questions for your students.")
 
-            if st.button("Generate Question Bank"):
-                content = curriculum_map.get(selected_tech)
-                if content:
-                    questions, options, correct_answers = generate_questions(
-                        content, num_questions, question_type)
-                    question_bank_id = save_question_bank(
-                        selected_tech, [], '\n'.join(questions), difficulty,
-                        '\n'.join(correct_answers), question_type,
-                        '|||'.join(['###'.join(opt) for opt in options]),
-                        trainer_username
-                    )
-                    if question_bank_id:
-                        st.success(
-                            f"Question Bank generated successfully! ID: {question_bank_id}")
+    # --- NEW TABBED INTERFACE ---
+    tab_topic, tab_doc, tab_prompt = st.tabs(["📝 By Topic", "📄 From Document", "✍️ From Text"])
+
+    # --- TAB 1: GENERATE BY TOPIC NAME ---
+    with tab_topic:
+        st.info("Generate questions from the AI's general knowledge about a topic.")
+        tech_topic = st.text_input("Enter Technology Name (e.g., 'Python', 'JavaScript')", key="tech_topic")
+        topic_name = st.text_input("Enter Specific Topic (e.g., 'Data Structures', 'React Hooks')", key="topic_name")
+        num_questions_topic = st.number_input("Number of Questions", min_value=1, value=5, key="num_topic")
+        question_type_topic = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_topic")
+        difficulty_topic = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_topic")
+
+        if st.button("Generate & Save Question Bank", key="btn_topic", use_container_width=True):
+            if tech_topic and topic_name:
+                with st.spinner("AI is generating questions... This may take a moment."):
+                    # First, generate a context paragraph for the AI to work from
+                    context_prompt = f"Write a detailed, informative paragraph about the topic '{topic_name}' within the field of '{tech_topic}'."
+                    context_response = model.generate_content(context_prompt)
+                    context_text = context_response.text
+
+                    # Now, generate questions from that context
+                    questions, options, correct_answers = generate_questions(context_text, num_questions_topic, question_type_topic)
+
+                    if questions and correct_answers:
+                        # Save the newly generated question bank
+                        question_bank_id = save_question_bank(
+                            tech_topic,
+                            [topic_name],
+                            '\n'.join(questions),
+                            difficulty_topic,
+                            '\n'.join(correct_answers),
+                            question_type_topic,
+                            '|||'.join(['###'.join(opt) for opt in options]),
+                            trainer_username
+                        )
+                        if question_bank_id:
+                            st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
+                            with st.expander("Review Generated Questions & Answers"):
+                                for i, q in enumerate(questions):
+                                    st.write(f"**Q{i+1}:** {q}")
+                                    if options and options[i]:
+                                        st.write(f"**Options:** {', '.join(options[i])}")
+                                    st.success(f"**Correct Answer:** {correct_answers[i]}")
+                                    st.write("---")
+                        else:
+                            st.error("Failed to save the question bank to the database.")
                     else:
-                        st.error("Failed to save question bank.")
-                else:
-                    st.error("Failed to retrieve curriculum content.")
+                        st.error("The AI could not generate valid questions for this topic. Please try again.")
+            else:
+                st.warning("Please provide both a Technology and a Topic name.")
+
+    # --- TAB 2: GENERATE FROM UPLOADED DOCUMENT ---
+    with tab_doc:
+        st.info("Upload any supported document and the AI will generate questions based on its content.")
+        tech_doc = st.text_input("Enter Technology Name for this Question Bank", key="tech_doc")
+        
+        uploaded_file = st.file_uploader(
+            "Upload a document",
+            type=['pdf', 'docx', 'txt', 'pptx', 'csv', 'json'],  # Accepts all supported types
+            key="doc_uploader"
+        )
+        
+        num_questions_doc = st.number_input("Number of Questions", min_value=1, value=5, key="num_doc")
+        question_type_doc = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_doc")
+        difficulty_doc = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_doc")
+
+        if st.button("Generate & Save Question Bank", key="btn_doc", use_container_width=True):
+            if tech_doc and uploaded_file:
+                with st.spinner("Extracting text and generating questions..."):
+                    content = extract_text_from_file(uploaded_file)
+                    if content:
+                        questions, options, correct_answers = generate_questions(content, num_questions_doc, question_type_doc)
+                        if questions:
+                            question_bank_id = save_question_bank(
+                                tech_doc,
+                                [uploaded_file.name],
+                                '\n'.join(questions),
+                                difficulty_doc,
+                                '\n'.join(correct_answers),
+                                question_type_doc,
+                                '|||'.join(['###'.join(opt) for opt in options]),
+                                trainer_username
+                            )
+                            if question_bank_id:
+                                st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
+                            else:
+                                st.error("Failed to save the question bank.")
+                        else:
+                            st.error("The AI could not generate valid questions from the document.")
+                    # Error message is handled inside extract_text_from_file
+            else:
+                st.warning("Please provide a Technology name and upload a document.")
+
+    # --- TAB 3: GENERATE FROM PASTED TEXT ---
+    with tab_prompt:
+        st.info("Paste any block of text (e.g., an article, notes, or a prompt) to generate questions.")
+        tech_prompt = st.text_input("Enter Technology Name for this Question Bank", key="tech_prompt")
+        text_content = st.text_area("Paste the content here", height=250, key="prompt_text")
+        num_questions_prompt = st.number_input("Number of Questions", min_value=1, value=5, key="num_prompt")
+        question_type_prompt = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_prompt")
+        difficulty_prompt = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_prompt")
+
+        if st.button("Generate & Save Question Bank", key="btn_prompt", use_container_width=True):
+            if tech_prompt and text_content:
+                with st.spinner("AI is generating questions..."):
+                    questions, options, correct_answers = generate_questions(text_content, num_questions_prompt, question_type_prompt)
+                    if questions:
+                        question_bank_id = save_question_bank(
+                            tech_prompt,
+                            ["Pasted Text"],
+                            '\n'.join(questions),
+                            difficulty_prompt,
+                            '\n'.join(correct_answers),
+                            question_type_prompt,
+                            '|||'.join(['###'.join(opt) for opt in options]),
+                            trainer_username
+                        )
+                        if question_bank_id:
+                            st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
+                        else:
+                            st.error("Failed to save the question bank.")
+                    else:
+                        st.error("The AI could not generate valid questions from the provided text.")
+            else:
+                st.warning("Please provide a Technology name and paste some content.")
 
     # --- View Questions Page (Modified) ---
     elif selected == "View Questions":
@@ -412,92 +508,96 @@ def trainer_dashboard():
                             mime='text/csv'
                         )
 
-    elif selected == "Employee Performance":
-        st.subheader("Employee Performance 📈")
-        employees = get_all_users()
+    # In your trainer_dashboard function, replace the entire performance block with this:
 
-        if employees:
-            selected_employee = st.selectbox(
-                "Select Employee",
-                options=[employee['username'] for employee in employees],
-                key="employee_performance_select"
-            )
+elif selected == "employee Performance": # Consider renaming this to "Student Performance" in your option_menu for consistency
+    st.subheader("Student Performance 📈")
 
-            if selected_employee:
-                # Fetch assessment results for the selected employee
-                assessment_results = get_assessment_results(selected_employee)
-                if assessment_results:
-                    # Prepare data for the table
-                    performance_data = []
-                    for result in assessment_results:
-                        performance_data.append({
-                            # Convert ObjectId to string
-                            'Question Bank ID': str(result['question_bank_id']),
-                            'Score': result['score'],
-                            'Completed At': result['completed_at']
-                        })
+    # --- THIS IS THE FIX ---
+    # This line now correctly fetches ONLY the students assigned to the logged-in trainer.
+    assigned_students = get_assigned_employees(trainer_username)
 
-                    # Convert to DataFrame for better visualization
-                    performance_df = pd.DataFrame(performance_data)
+    if not assigned_students:
+        st.info("You have not assigned any students yet. Use the 'Assign Students' tab to get started.")
+    else:
+        # Create a list of usernames for the dropdown menu
+        student_options = [student['username'] for student in assigned_students]
+        
+        selected_student = st.selectbox(
+            "Select a Student to View Their Performance",
+            options=student_options,
+            key="student_performance_select"
+        )
 
-                    # Display summary metrics
-                    st.subheader(f"Summary Statistics for {selected_employee}")
-                    total_assessments = len(performance_df)
-                    avg_score = performance_df['Score'].mean(
-                    ) if total_assessments > 0 else 0
-                    best_score = performance_df['Score'].max(
-                    ) if total_assessments > 0 else 0
+        if selected_student:
+            # Fetch assessment results for the selected student
+            assessment_results = get_assessment_results(selected_student)
+            
+            if assessment_results:
+                # Prepare data for the table
+                performance_data = []
+                for result in assessment_results:
+                    performance_data.append({
+                        'Question Bank ID': str(result['question_bank_id']),
+                        'Score': result['score'],
+                        'Completed At': result['completed_at']
+                    })
 
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Total Assessments", total_assessments)
-                    with col2:
-                        st.metric("Average Score", f"{avg_score:.1f}")
-                    with col3:
-                        st.metric("Best Score", best_score)
+                # Convert to DataFrame for better visualization
+                performance_df = pd.DataFrame(performance_data)
 
-                    # Display the performance data in a styled table
-                    st.write(f"Performance Data for {selected_employee}:")
-                    st.dataframe(performance_df.style.highlight_max(
-                        axis=0))  # Highlight max scores
+                # Display summary metrics
+                st.subheader(f"Summary Statistics for {selected_student}")
+                total_assessments = len(performance_df)
+                avg_score = performance_df['Score'].mean() if total_assessments > 0 else 0
+                best_score = performance_df['Score'].max() if total_assessments > 0 else 0
 
-                    # Convert 'Completed At' column to datetime for sorting
-                    performance_df['Completed At'] = pd.to_datetime(
-                        performance_df['Completed At'])
-                    performance_df.sort_values('Completed At', inplace=True)
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Assessments", total_assessments)
+                with col2:
+                    st.metric("Average Score", f"{avg_score:.1f}")
+                with col3:
+                    st.metric("Best Score", best_score)
 
-                    # Create visualizations
-                    st.subheader("Performance Over Time")
+                # Display the performance data in a styled table
+                st.write(f"Performance Data for {selected_student}:")
+                st.dataframe(performance_df.style.highlight_max(axis=0, subset=['Score']))
 
-                    # Line chart for scores over time
-                    fig_line = px.line(performance_df, x='Completed At', y='Score',
-                                       title='Score Over Time', markers=True)
-                    st.plotly_chart(fig_line)
+                # Convert 'Completed At' column to datetime for sorting
+                performance_df['Completed At'] = pd.to_datetime(performance_df['Completed At'])
+                performance_df.sort_values('Completed At', inplace=True)
 
-                    # Bar chart for scores by question bank
-                    fig_bar = px.bar(performance_df, x='Question Bank ID', y='Score',
-                                     title='Scores by Question Bank', text='Score')
-                    st.plotly_chart(fig_bar)
+                # Create visualizations
+                st.subheader("Performance Over Time")
 
-                    # Convert figures to HTML format for download
-                    fig_line_html = fig_line.to_html(full_html=False)
-                    fig_bar_html = fig_bar.to_html(full_html=False)
+                # Line chart for scores over time
+                fig_line = px.line(performance_df, x='Completed At', y='Score',
+                                   title='Score Over Time', markers=True)
+                st.plotly_chart(fig_line, use_container_width=True)
 
-                    # Provide download buttons
-                    st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
-                                       file_name=f"{selected_employee}_performance_over_time.html", mime="text/html")
+                # Bar chart for scores by question bank
+                fig_bar = px.bar(performance_df, x='Question Bank ID', y='Score',
+                                 title='Scores by Question Bank', text='Score')
+                st.plotly_chart(fig_bar, use_container_width=True)
 
-                    st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
-                                       file_name=f"{selected_employee}_score_by_question_bank.html", mime="text/html")
+                # Convert figures to HTML format for download
+                fig_line_html = fig_line.to_html(full_html=False)
+                fig_bar_html = fig_bar.to_html(full_html=False)
 
-                    st.download_button(label="Download Performance Data as CSV",
-                                       data=performance_df.to_csv(index=False),
-                                       file_name=f"{selected_employee}_performance.csv", mime="text/csv")
+                # Provide download buttons
+                st.download_button(label="Download Line Chart as HTML", data=fig_line_html,
+                                   file_name=f"{selected_student}_performance_over_time.html", mime="text/html")
 
-                else:
-                    st.info("No assessment results available for this employee.")
-        else:
-            st.info("No employees available.")
+                st.download_button(label="Download Bar Chart as HTML", data=fig_bar_html,
+                                   file_name=f"{selected_student}_score_by_question_bank.html", mime="text/html")
+
+                st.download_button(label="Download Performance Data as CSV",
+                                   data=performance_df.to_csv(index=False).encode('utf-8'),
+                                   file_name=f"{selected_student}_performance.csv", mime="text/csv")
+
+            else:
+                st.info(f"No assessment results available for {selected_student}.")
 
     # Display content based on the selected option
     if selected == "Generate Questions":
@@ -931,39 +1031,49 @@ def format_timestamp(timestamp_str):
 
 
 # Utility functions
-def extract_text_from_file(file):
-    file_extension = os.path.splitext(file.name)[1].lower()
-    text = ""
+# In your stt.py file, replace the old extract_text_from_file function with this:
 
+def extract_text_from_file(uploaded_file):
+    """
+    Extracts text content from various file types (.pdf, .docx, .txt, .pptx, .csv, .json).
+    Returns the text content as a string or None if the file type is unsupported.
+    """
     try:
+        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+        text = ""
+
         if file_extension == '.pdf':
-            pdf_reader = PyPDF2.PdfReader(file)
+            pdf_reader = PyPDF2.PdfReader(uploaded_file)
             for page in pdf_reader.pages:
                 text += page.extract_text() + "\n"
         elif file_extension == '.docx':
-            doc = docx.Document(file)
+            doc = docx.Document(uploaded_file)
             text = "\n".join([para.text for para in doc.paragraphs])
-        elif file_extension == '.txt':
-            text = file.getvalue().decode('utf-8')
-        elif file_extension in ['.ppt', '.pptx']:
-            prs = Presentation(file)
+        elif file_extension == '.pptx':
+            prs = Presentation(uploaded_file)
             for slide in prs.slides:
                 for shape in slide.shapes:
                     if hasattr(shape, 'text'):
                         text += shape.text + "\n"
+        elif file_extension == '.txt':
+            text = uploaded_file.getvalue().decode('utf-8')
         elif file_extension == '.csv':
-            csv_data = pd.read_csv(file)
-            text = csv_data.to_string(index=False)
+            # Reads the entire CSV as a string
+            df = pd.read_csv(uploaded_file)
+            text = df.to_string(index=False)
+        elif file_extension == '.json':
+            # Reads the JSON and pretty-prints it as a string
+            json_data = json.load(uploaded_file)
+            text = json.dumps(json_data, indent=2)
         else:
-            # For other file types, attempt to read as text
-            try:
-                text = file.getvalue().decode('utf-8')
-            except UnicodeDecodeError:
-                raise ValueError(
-                    f"Unable to extract text from {file_extension} file.")
-    except Exception as e:
-        raise ValueError(f"Error processing {file_extension} file: {str(e)}")
+            st.warning(f"Unsupported file type: '{file_extension}'. Only .pdf, .docx, .pptx, .txt, .csv, and .json are supported.")
+            return None
 
+        return clean_text(text)
+
+    except Exception as e:
+        st.error(f"Error processing the file '{uploaded_file.name}': {e}")
+        return None
     # Clean the extracted text
     cleaned_text = clean_text(text)
     return cleaned_text
