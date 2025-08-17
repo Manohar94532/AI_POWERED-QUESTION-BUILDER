@@ -135,90 +135,124 @@ def trainer_dashboard():
     # --- Generate Question Bank Page (Modified) ---
     # In your trainer_dashboard function, replace the entire "Generate Question Bank" block with this:
 
-elif selected == "Generate Question Bank":
-    st.subheader("Generate a New Question Bank 📚")
-    st.write("Choose your preferred method to generate questions for your students.")
+    elif selected == "Generate Question Bank":
+        st.subheader("Generate a New Question Bank 📚")
+        st.write("Choose your preferred method to generate questions for your students.")
 
-    # --- NEW TABBED INTERFACE ---
-    tab_topic, tab_doc, tab_prompt = st.tabs(["📝 By Topic", "📄 From Document", "✍️ From Text"])
+        # --- NEW TABBED INTERFACE ---
+        tab_topic, tab_doc, tab_prompt = st.tabs(["📝 By Topic", "📄 From Document", "✍️ From Text"])
 
-    # --- TAB 1: GENERATE BY TOPIC NAME ---
-    with tab_topic:
-        st.info("Generate questions from the AI's general knowledge about a topic.")
-        tech_topic = st.text_input("Enter Technology Name (e.g., 'Python', 'JavaScript')", key="tech_topic")
-        topic_name = st.text_input("Enter Specific Topic (e.g., 'Data Structures', 'React Hooks')", key="topic_name")
-        num_questions_topic = st.number_input("Number of Questions", min_value=1, value=5, key="num_topic")
-        question_type_topic = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_topic")
-        difficulty_topic = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_topic")
+        # --- TAB 1: GENERATE BY TOPIC NAME ---
+        with tab_topic:
+            st.info("Generate questions from the AI's general knowledge about a topic.")
+            tech_topic = st.text_input("Enter Technology Name (e.g., 'Python', 'JavaScript')", key="tech_topic")
+            topic_name = st.text_input("Enter Specific Topic (e.g., 'Data Structures', 'React Hooks')", key="topic_name")
+            num_questions_topic = st.number_input("Number of Questions", min_value=1, value=5, key="num_topic")
+            question_type_topic = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_topic")
+            difficulty_topic = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_topic")
 
-        if st.button("Generate & Save Question Bank", key="btn_topic", use_container_width=True):
-            if tech_topic and topic_name:
-                with st.spinner("AI is generating questions... This may take a moment."):
-                    # First, generate a context paragraph for the AI to work from
-                    context_prompt = f"Write a detailed, informative paragraph about the topic '{topic_name}' within the field of '{tech_topic}'."
-                    context_response = model.generate_content(context_prompt)
-                    context_text = context_response.text
+            if st.button("Generate & Save Question Bank", key="btn_topic", use_container_width=True):
+                if tech_topic and topic_name:
+                    with st.spinner("AI is generating questions... This may take a moment."):
+                        # First, generate a context paragraph for the AI to work from
+                        context_prompt = f"Write a detailed, informative paragraph about the topic '{topic_name}' within the field of '{tech_topic}'."
+                        context_response = model.generate_content(context_prompt)
+                        context_text = context_response.text
 
-                    # Now, generate questions from that context
-                    questions, options, correct_answers = generate_questions(context_text, num_questions_topic, question_type_topic)
+                        # Now, generate questions from that context
+                        questions, options, correct_answers = generate_questions(context_text, num_questions_topic, question_type_topic)
 
-                    if questions and correct_answers:
-                        # Save the newly generated question bank
-                        question_bank_id = save_question_bank(
-                            tech_topic,
-                            [topic_name],
-                            '\n'.join(questions),
-                            difficulty_topic,
-                            '\n'.join(correct_answers),
-                            question_type_topic,
-                            '|||'.join(['###'.join(opt) for opt in options]),
-                            trainer_username
-                        )
-                        if question_bank_id:
-                            st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
-                            with st.expander("Review Generated Questions & Answers"):
-                                for i, q in enumerate(questions):
-                                    st.write(f"**Q{i+1}:** {q}")
-                                    if options and options[i]:
-                                        st.write(f"**Options:** {', '.join(options[i])}")
-                                    st.success(f"**Correct Answer:** {correct_answers[i]}")
-                                    st.write("---")
+                        if questions and correct_answers:
+                            # Save the newly generated question bank
+                            question_bank_id = save_question_bank(
+                                tech_topic,
+                                [topic_name],
+                                '\n'.join(questions),
+                                difficulty_topic,
+                                '\n'.join(correct_answers),
+                                question_type_topic,
+                                '|||'.join(['###'.join(opt) for opt in options]),
+                                trainer_username
+                            )
+                            if question_bank_id:
+                                st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
+                                with st.expander("Review Generated Questions & Answers"):
+                                    for i, q in enumerate(questions):
+                                        st.write(f"**Q{i+1}:** {q}")
+                                        if options and options[i]:
+                                            st.write(f"**Options:** {', '.join(options[i])}")
+                                        st.success(f"**Correct Answer:** {correct_answers[i]}")
+                                        st.write("---")
+                            else:
+                                st.error("Failed to save the question bank to the database.")
                         else:
-                            st.error("Failed to save the question bank to the database.")
-                    else:
-                        st.error("The AI could not generate valid questions for this topic. Please try again.")
-            else:
-                st.warning("Please provide both a Technology and a Topic name.")
+                            st.error("The AI could not generate valid questions for this topic. Please try again.")
+                else:
+                    st.warning("Please provide both a Technology and a Topic name.")
 
-    # --- TAB 2: GENERATE FROM UPLOADED DOCUMENT ---
-    with tab_doc:
-        st.info("Upload any supported document and the AI will generate questions based on its content.")
-        tech_doc = st.text_input("Enter Technology Name for this Question Bank", key="tech_doc")
-        
-        uploaded_file = st.file_uploader(
-            "Upload a document",
-            type=['pdf', 'docx', 'txt', 'pptx', 'csv', 'json'],  # Accepts all supported types
-            key="doc_uploader"
-        )
-        
-        num_questions_doc = st.number_input("Number of Questions", min_value=1, value=5, key="num_doc")
-        question_type_doc = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_doc")
-        difficulty_doc = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_doc")
+        # --- TAB 2: GENERATE FROM UPLOADED DOCUMENT ---
+        with tab_doc:
+            st.info("Upload any supported document and the AI will generate questions based on its content.")
+            tech_doc = st.text_input("Enter Technology Name for this Question Bank", key="tech_doc")
+            
+            uploaded_file = st.file_uploader(
+                "Upload a document",
+                type=['pdf', 'docx', 'txt', 'pptx', 'csv', 'json'],  # Accepts all supported types
+                key="doc_uploader"
+            )
+            
+            num_questions_doc = st.number_input("Number of Questions", min_value=1, value=5, key="num_doc")
+            question_type_doc = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_doc")
+            difficulty_doc = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_doc")
 
-        if st.button("Generate & Save Question Bank", key="btn_doc", use_container_width=True):
-            if tech_doc and uploaded_file:
-                with st.spinner("Extracting text and generating questions..."):
-                    content = extract_text_from_file(uploaded_file)
-                    if content:
-                        questions, options, correct_answers = generate_questions(content, num_questions_doc, question_type_doc)
+            if st.button("Generate & Save Question Bank", key="btn_doc", use_container_width=True):
+                if tech_doc and uploaded_file:
+                    with st.spinner("Extracting text and generating questions..."):
+                        content = extract_text_from_file(uploaded_file)
+                        if content:
+                            questions, options, correct_answers = generate_questions(content, num_questions_doc, question_type_doc)
+                            if questions:
+                                question_bank_id = save_question_bank(
+                                    tech_doc,
+                                    [uploaded_file.name],
+                                    '\n'.join(questions),
+                                    difficulty_doc,
+                                    '\n'.join(correct_answers),
+                                    question_type_doc,
+                                    '|||'.join(['###'.join(opt) for opt in options]),
+                                    trainer_username
+                                )
+                                if question_bank_id:
+                                    st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
+                                else:
+                                    st.error("Failed to save the question bank.")
+                            else:
+                                st.error("The AI could not generate valid questions from the document.")
+                        # Error message is handled inside extract_text_from_file
+                else:
+                    st.warning("Please provide a Technology name and upload a document.")
+
+        # --- TAB 3: GENERATE FROM PASTED TEXT ---
+        with tab_prompt:
+            st.info("Paste any block of text (e.g., an article, notes, or a prompt) to generate questions.")
+            tech_prompt = st.text_input("Enter Technology Name for this Question Bank", key="tech_prompt")
+            text_content = st.text_area("Paste the content here", height=250, key="prompt_text")
+            num_questions_prompt = st.number_input("Number of Questions", min_value=1, value=5, key="num_prompt")
+            question_type_prompt = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_prompt")
+            difficulty_prompt = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_prompt")
+
+            if st.button("Generate & Save Question Bank", key="btn_prompt", use_container_width=True):
+                if tech_prompt and text_content:
+                    with st.spinner("AI is generating questions..."):
+                        questions, options, correct_answers = generate_questions(text_content, num_questions_prompt, question_type_prompt)
                         if questions:
                             question_bank_id = save_question_bank(
-                                tech_doc,
-                                [uploaded_file.name],
+                                tech_prompt,
+                                ["Pasted Text"],
                                 '\n'.join(questions),
-                                difficulty_doc,
+                                difficulty_prompt,
                                 '\n'.join(correct_answers),
-                                question_type_doc,
+                                question_type_prompt,
                                 '|||'.join(['###'.join(opt) for opt in options]),
                                 trainer_username
                             )
@@ -227,43 +261,9 @@ elif selected == "Generate Question Bank":
                             else:
                                 st.error("Failed to save the question bank.")
                         else:
-                            st.error("The AI could not generate valid questions from the document.")
-                    # Error message is handled inside extract_text_from_file
-            else:
-                st.warning("Please provide a Technology name and upload a document.")
-
-    # --- TAB 3: GENERATE FROM PASTED TEXT ---
-    with tab_prompt:
-        st.info("Paste any block of text (e.g., an article, notes, or a prompt) to generate questions.")
-        tech_prompt = st.text_input("Enter Technology Name for this Question Bank", key="tech_prompt")
-        text_content = st.text_area("Paste the content here", height=250, key="prompt_text")
-        num_questions_prompt = st.number_input("Number of Questions", min_value=1, value=5, key="num_prompt")
-        question_type_prompt = st.selectbox("Question Type", ["multiple-choice", "subjective", "fill-in-the-blank"], key="type_prompt")
-        difficulty_prompt = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"], key="diff_prompt")
-
-        if st.button("Generate & Save Question Bank", key="btn_prompt", use_container_width=True):
-            if tech_prompt and text_content:
-                with st.spinner("AI is generating questions..."):
-                    questions, options, correct_answers = generate_questions(text_content, num_questions_prompt, question_type_prompt)
-                    if questions:
-                        question_bank_id = save_question_bank(
-                            tech_prompt,
-                            ["Pasted Text"],
-                            '\n'.join(questions),
-                            difficulty_prompt,
-                            '\n'.join(correct_answers),
-                            question_type_prompt,
-                            '|||'.join(['###'.join(opt) for opt in options]),
-                            trainer_username
-                        )
-                        if question_bank_id:
-                            st.success(f"Successfully generated and saved Question Bank! ID: {question_bank_id}")
-                        else:
-                            st.error("Failed to save the question bank.")
-                    else:
-                        st.error("The AI could not generate valid questions from the provided text.")
-            else:
-                st.warning("Please provide a Technology name and paste some content.")
+                            st.error("The AI could not generate valid questions from the provided text.")
+                else:
+                    st.warning("Please provide a Technology name and paste some content.")
 
     # --- View Questions Page (Modified) ---
     elif selected == "View Questions":
